@@ -49,7 +49,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ backgroundImage: 'url(/fundo.tela.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      style={{ backgroundImage: 'url(/fundo-tela.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="absolute inset-0 bg-petroleum/70" />
 
       <div className="w-full max-w-md relative z-10">
@@ -58,7 +58,7 @@ export default function Login() {
 
           <div className="p-8">
             <div className="text-center mb-6">
-              <img src="/logo-colorida.jpeg" alt="Comissão de Comunidades" className="h-28 w-auto mx-auto mb-2 object-contain" />
+              <img src="/logo-colorida.jpeg" alt="Comissão de Comunidades" className="h-44 w-auto mx-auto mb-2 object-contain" />
             </div>
 
             {/* Tabs */}

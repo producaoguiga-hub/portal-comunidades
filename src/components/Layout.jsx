@@ -38,12 +38,13 @@ export default function Layout({ currentPage, onNavigate, children }) {
   const displayRole = liderSession ? 'Líder Comunitário' : role === 'admin' ? 'Administrador' : 'Gestor'
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen overflow-hidden"
+      style={{ backgroundImage: 'url(/fundo-tela.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-petroleum text-white flex flex-col transition-all duration-300 shrink-0 shadow-xl`}>
 
         <div className="flex items-center justify-between px-4 py-4 border-b border-petroleum-light">
           {sidebarOpen && (
-            <img src="/logo-branca.png" alt="Comissão de Comunidades" className="h-8 w-auto object-contain" />
+            <img src="/logo-branca.png" alt="Comissão de Comunidades" className="h-12 w-auto object-contain" />
           )}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -92,7 +93,7 @@ export default function Layout({ currentPage, onNavigate, children }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto bg-gray-50">
+      <main className="flex-1 overflow-auto bg-white/80 backdrop-blur-sm">
         <div className="p-6 max-w-7xl mx-auto">
           {children}
         </div>

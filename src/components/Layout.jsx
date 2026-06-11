@@ -46,16 +46,20 @@ export default function Layout({ currentPage, onNavigate, children }) {
       style={{ backgroundImage: 'url(/fundo-tela.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-petroleum text-white flex flex-col transition-all duration-300 shrink-0 shadow-xl`}>
 
-        <div className="flex items-center justify-between px-4 py-4 border-b border-petroleum-light">
+        <div className="px-4 pt-3 pb-4 border-b border-petroleum-light">
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-1.5 hover:bg-petroleum-light rounded-lg transition-colors text-cinza hover:text-verde"
+            >
+              {sidebarOpen ? <X size={17} /> : <Menu size={17} />}
+            </button>
+          </div>
           {sidebarOpen && (
-            <img src="/logo-branca.png" alt="Comissão de Comunidades" className="h-12 w-auto object-contain" />
+            <div className="flex justify-center">
+              <img src="/logo-colorida.jpeg" alt="Comissão de Comunidades" className="h-[72px] w-auto object-contain" />
+            </div>
           )}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 hover:bg-petroleum-light rounded-lg transition-colors ml-auto text-cinza hover:text-verde"
-          >
-            {sidebarOpen ? <X size={17} /> : <Menu size={17} />}
-          </button>
         </div>
 
         <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
@@ -81,10 +85,15 @@ export default function Layout({ currentPage, onNavigate, children }) {
 
         <div className="p-3 border-t border-petroleum-light">
           {sidebarOpen && (
-            <div className="mb-2 px-1">
-              <p className="text-white/70 text-xs truncate font-medium">{displayName}</p>
-              <p className="text-oceano/60 text-xs">{displayRole}</p>
-            </div>
+            <>
+              <div className="flex justify-center mb-3">
+                <img src="/logo-branca.png" alt="Comissão de Comunidades" className="h-[82px] w-auto object-contain" />
+              </div>
+              <div className="mb-2 px-1">
+                <p className="text-white/70 text-xs truncate font-medium">{displayName}</p>
+                <p className="text-oceano/60 text-xs">{displayRole}</p>
+              </div>
+            </>
           )}
           <button
             onClick={signOut}

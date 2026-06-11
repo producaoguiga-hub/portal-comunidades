@@ -4,7 +4,7 @@ import Table from '../components/Table'
 import Modal from '../components/Modal'
 import { Plus } from 'lucide-react'
 
-const empty = { titulo: '', unidade: '', regiao: '', status: 'aberta' }
+const empty = { titulo: '', unidade: '', status: 'aberta', comunidade_id: '' }
 
 const statusBadge = {
   aberta: 'bg-verde text-petroleum',
@@ -15,7 +15,7 @@ const statusBadge = {
 const columns = [
   { key: 'titulo', label: 'Título' },
   { key: 'unidade', label: 'Unidade' },
-  { key: 'regiao', label: 'Região' },
+  { key: 'comunidades', label: 'Comunidade', render: v => v?.nome ?? '—' },
   {
     key: 'status', label: 'Status',
     render: v => (
@@ -31,6 +31,7 @@ const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracki
 
 export default function Vagas() {
   const [data, setData] = useState([])
+  const [comunidades, setComunidades] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -39,24 +40,29 @@ export default function Vagas() {
 
   const load = async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('vagas').select('*').order('created_at', { ascending: false })
-    setData(rows ?? [])
+    const [vagRes, comRes] = await Promise.all([
+      supabase.from('vagas').select('*, comunidades(nome)').order('created_at', { ascending: false }),
+      supabase.from('comunidades').select('id, nome').order('nome'),
+    ])
+    setData(vagRes.data ?? [])
+    setComunidades(comRes.data ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
 
   const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
-  const openEdit = (row) => { setForm(row); setEditId(row.id); setModal(true) }
+  const openEdit = (row) => { setForm({ ...row, comunidade_id: row.comunidade_id ?? '' }); setEditId(row.id); setModal(true) }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { titulo, unidade, regiao, status } = form
+    const { titulo, unidade, status, comunidade_id } = form
+    const payload = { titulo, unidade, status, comunidade_id: comunidade_id || null }
     if (editId) {
-      await supabase.from('vagas').update({ titulo, unidade, regiao, status }).eq('id', editId)
+      await supabase.from('vagas').update(payload).eq('id', editId)
     } else {
-      await supabase.from('vagas').insert({ titulo, unidade, regiao, status })
+      await supabase.from('vagas').insert(payload)
     }
     setSaving(false)
     setModal(false)
@@ -95,21 +101,23 @@ export default function Vagas() {
       {modal && (
         <Modal title={editId ? 'Editar Vaga' : 'Nova Vaga'} onClose={() => setModal(false)}>
           <form onSubmit={handleSave} className="space-y-4">
-            {[
-              { key: 'titulo', label: 'Título', required: true },
-              { key: 'unidade', label: 'Unidade' },
-              { key: 'regiao', label: 'Região' },
-            ].map(({ key, label, required }) => (
-              <div key={key}>
-                <label className={labelCls}>{label}</label>
-                <input
-                  value={form[key] ?? ''}
-                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  required={required}
-                  className={inputCls}
-                />
-              </div>
-            ))}
+            <div>
+              <label className={labelCls}>Título *</label>
+              <input value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
+                required className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Unidade</label>
+              <input value={form.unidade ?? ''} onChange={e => setForm(f => ({ ...f, unidade: e.target.value }))}
+                className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Comunidade</label>
+              <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value }))} className={inputCls}>
+                <option value="">— Selecione a comunidade —</option>
+                {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
             <div>
               <label className={labelCls}>Status</label>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputCls}>

@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Lideres from './pages/Lideres'
 import Vagas from './pages/Vagas'
 import Servicos from './pages/Servicos'
 import Funcionarios from './pages/Funcionarios'
@@ -37,7 +36,6 @@ function AppContent() {
 
   const pages = {
     dashboard: <Dashboard />,
-    lideres: <Lideres />,
     vagas: <Vagas />,
     servicos: <Servicos />,
     funcionarios: <Funcionarios />,

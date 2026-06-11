@@ -7,28 +7,27 @@ import {
 
 const navAdmin = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'lideres', label: 'Líderes', icon: Users },
+  { id: 'associacoes', label: 'Associações', icon: Building2 },
   { id: 'vagas', label: 'Vagas', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
-  { id: 'associacoes', label: 'Associações', icon: Building2 },
   { id: 'comunidades', label: 'Comunidades', icon: MapPin },
   { id: 'usuarios', label: 'Usuários', icon: Shield },
 ]
 
 const navGestor = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'lideres', label: 'Líderes', icon: Users },
+  { id: 'associacoes', label: 'Associações', icon: Building2 },
   { id: 'vagas', label: 'Vagas', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
-  { id: 'associacoes', label: 'Associações', icon: Building2 },
 ]
 
 const navLider = [
   { id: 'minha-comunidade', label: 'Minha Comunidade', icon: Home },
+  { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
 ]
 
 export default function Layout({ currentPage, onNavigate, children }) {

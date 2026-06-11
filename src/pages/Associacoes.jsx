@@ -4,7 +4,7 @@ import Table from '../components/Table'
 import Modal from '../components/Modal'
 import { Plus } from 'lucide-react'
 
-const empty = { nome: '', sigla: '', representante_legal: '', telefone: '' }
+const empty = { nome: '', sigla: '', representante_legal: '', telefone: '', comunidade_id: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
@@ -13,10 +13,12 @@ const columns = [
   { key: 'sigla', label: 'Sigla', render: v => v ? <span className="px-2 py-0.5 bg-oceano/15 text-oceano rounded font-mono text-xs">{v}</span> : '—' },
   { key: 'representante_legal', label: 'Representante Legal' },
   { key: 'telefone', label: 'Telefone / WhatsApp' },
+  { key: 'comunidades', label: 'Comunidade', render: v => v?.nome ?? '—' },
 ]
 
 export default function Associacoes() {
   const [data, setData] = useState([])
+  const [comunidades, setComunidades] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -26,21 +28,25 @@ export default function Associacoes() {
 
   const load = async () => {
     setLoading(true)
-    const { data } = await supabase.from('associacoes').select('*').order('nome')
-    setData(data ?? [])
+    const [assocRes, comRes] = await Promise.all([
+      supabase.from('associacoes').select('*, comunidades(nome)').order('nome'),
+      supabase.from('comunidades').select('id, nome').order('nome'),
+    ])
+    setData(assocRes.data ?? [])
+    setComunidades(comRes.data ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
 
   const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
-  const openEdit = (row) => { setForm({ ...row }); setEditId(row.id); setModal(true) }
+  const openEdit = (row) => { setForm({ ...row, comunidade_id: row.comunidade_id ?? '' }); setEditId(row.id); setModal(true) }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { nome, sigla, representante_legal, telefone } = form
-    const payload = { nome, sigla: sigla || null, representante_legal: representante_legal || null, telefone: telefone || null }
+    const { nome, sigla, representante_legal, telefone, comunidade_id } = form
+    const payload = { nome, sigla: sigla || null, representante_legal: representante_legal || null, telefone: telefone || null, comunidade_id: comunidade_id || null }
     if (editId) {
       await supabase.from('associacoes').update(payload).eq('id', editId)
     } else {
@@ -118,6 +124,13 @@ export default function Associacoes() {
               <label className={labelCls}>Telefone / WhatsApp</label>
               <input value={form.telefone} onChange={e => setForm(f => ({ ...f, telefone: e.target.value }))}
                 className={inputCls} placeholder="(75) 9 9999-9999" />
+            </div>
+            <div>
+              <label className={labelCls}>Comunidade</label>
+              <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value }))} className={inputCls}>
+                <option value="">— Sem comunidade —</option>
+                {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModal(false)}

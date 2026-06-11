@@ -5,7 +5,7 @@ import { MapPin, UserCheck, Building2 } from 'lucide-react'
 
 export default function MinhaComunidade() {
   const { liderSession } = useAuth()
-  const [lideres, setLideres] = useState([])
+  const [associacoes, setAssociacoes] = useState([])
   const [funcionarios, setFuncionarios] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -13,11 +13,11 @@ export default function MinhaComunidade() {
     if (!liderSession?.comunidadeId) return
     const load = async () => {
       setLoading(true)
-      const [lidRes, funcRes] = await Promise.all([
-        supabase.from('lideres').select('*').eq('comunidade_id', liderSession.comunidadeId),
+      const [assocRes, funcRes] = await Promise.all([
+        supabase.from('associacoes').select('*').eq('comunidade_id', liderSession.comunidadeId),
         supabase.from('funcionarios_associacao').select('*').eq('comunidade_id', liderSession.comunidadeId),
       ])
-      setLideres(lidRes.data ?? [])
+      setAssociacoes(assocRes.data ?? [])
       setFuncionarios(funcRes.data ?? [])
       setLoading(false)
     }
@@ -39,31 +39,29 @@ export default function MinhaComunidade() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* Líderes */}
+          {/* Associações */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="px-5 py-4 border-b flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-oceano/15 flex items-center justify-center shrink-0">
                 <MapPin size={15} className="text-oceano" />
               </div>
-              <h2 className="font-semibold text-petroleum text-sm">Líderes da Comunidade</h2>
+              <h2 className="font-semibold text-petroleum text-sm">Associação da Comunidade</h2>
               <span className="ml-auto text-xs font-semibold text-oceano bg-oceano/10 px-2 py-0.5 rounded-full">
-                {lideres.length}
+                {associacoes.length}
               </span>
             </div>
-            {lideres.length === 0 ? (
-              <p className="px-5 py-8 text-sm text-cinza text-center">Nenhum líder vinculado ainda.</p>
+            {associacoes.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-cinza text-center">Nenhuma associação vinculada ainda.</p>
             ) : (
               <div className="divide-y divide-gray-50">
-                {lideres.map(l => (
-                  <div key={l.id} className="px-5 py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-petroleum">{l.nome}</p>
-                      {l.contato && <p className="text-xs text-gray-400 mt-0.5">{l.contato}</p>}
-                      {l.regiao && <p className="text-xs text-gray-400">Região: {l.regiao}</p>}
+                {associacoes.map(a => (
+                  <div key={a.id} className="px-5 py-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-petroleum">{a.nome}</p>
+                      {a.sigla && <span className="px-2 py-0.5 bg-oceano/15 text-oceano rounded font-mono text-xs">{a.sigla}</span>}
                     </div>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${
-                      l.status === 'ativo' ? 'bg-verde text-petroleum' : 'bg-cinza-light text-gray-500'
-                    }`}>{l.status}</span>
+                    {a.representante_legal && <p className="text-xs text-gray-400 mt-0.5">Rep.: {a.representante_legal}</p>}
+                    {a.telefone && <p className="text-xs text-gray-400">{a.telefone}</p>}
                   </div>
                 ))}
               </div>

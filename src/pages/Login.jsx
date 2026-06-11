@@ -58,7 +58,7 @@ export default function Login() {
 
           <div className="p-8">
             <div className="text-center mb-6 pt-4">
-              <img src="/logo-colorida.png" alt="Comissão de Comunidades" className="h-[228px] w-auto mx-auto mb-2 object-contain" />
+              <img src="/logo-colorida2.png" alt="Comissão de Comunidades" className="h-[228px] w-auto mx-auto mb-2 object-contain" />
             </div>
 
             {/* Tabs */}

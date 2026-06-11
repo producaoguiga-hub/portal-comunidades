@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus } from 'lucide-react'
+import { Plus, MessageCircle } from 'lucide-react'
 
 const empty = { nome: '', sigla: '', representante_legal: '', telefone: '', comunidade_id: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
@@ -12,7 +12,23 @@ const columns = [
   { key: 'nome', label: 'Associação' },
   { key: 'sigla', label: 'Sigla', render: v => v ? <span className="px-2 py-0.5 bg-oceano/15 text-oceano rounded font-mono text-xs">{v}</span> : '—' },
   { key: 'representante_legal', label: 'Representante Legal' },
-  { key: 'telefone', label: 'Telefone / WhatsApp' },
+  {
+    key: 'telefone', label: 'Telefone / WhatsApp',
+    render: (v) => {
+      if (!v) return '—'
+      const digits = v.replace(/\D/g, '')
+      const url = `https://wa.me/55${digits}`
+      return (
+        <div className="flex items-center gap-2">
+          <span>{v}</span>
+          <a href={url} target="_blank" rel="noreferrer" title="Abrir no WhatsApp"
+            className="text-green-500 hover:text-green-600 transition-colors shrink-0">
+            <MessageCircle size={15} />
+          </a>
+        </div>
+      )
+    }
+  },
   { key: 'comunidades', label: 'Comunidade', render: v => v?.nome ?? '—' },
 ]
 

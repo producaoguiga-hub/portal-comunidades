@@ -11,6 +11,7 @@ import MinhaComunidade from './pages/MinhaComunidade'
 import Comunidades from './pages/Comunidades'
 import Usuarios from './pages/Usuarios'
 import Associacoes from './pages/Associacoes'
+import Mapa from './pages/Mapa'
 
 const defaultPage = { admin: 'dashboard', gestor: 'dashboard', lider: 'minha-comunidade' }
 
@@ -41,6 +42,7 @@ function AppContent() {
     funcionarios: <Funcionarios />,
     acoes: <AcoesSociais />,
     associacoes: <Associacoes />,
+    mapa: <Mapa />,
     'minha-comunidade': <MinhaComunidade />,
     ...(role === 'admin' ? {
       comunidades: <Comunidades />,

@@ -57,8 +57,8 @@ export default function Login() {
           <div className="h-1.5 w-full bg-gradient-to-r from-verde via-oceano to-laranja" />
 
           <div className="p-8">
-            <div className="text-center mb-6">
-              <img src="/logo-colorida.jpeg" alt="Comissão de Comunidades" className="h-44 w-auto mx-auto mb-2 object-contain" />
+            <div className="text-center mb-6 pt-4">
+              <img src="/logo-colorida.png" alt="Comissão de Comunidades" className="h-[228px] w-auto mx-auto mb-2 object-contain" />
             </div>
 
             {/* Tabs */}

@@ -57,7 +57,7 @@ export default function Layout({ currentPage, onNavigate, children }) {
           </div>
           {sidebarOpen && (
             <div className="flex justify-center">
-              <img src="/logo-colorida.jpeg" alt="Comissão de Comunidades" className="h-[72px] w-auto object-contain" />
+              <img src="/logo-colorida.png" alt="Comissão de Comunidades" className="h-[72px] w-auto object-contain" />
             </div>
           )}
         </div>

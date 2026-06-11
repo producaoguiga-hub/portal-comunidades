@@ -4,19 +4,20 @@ import Table from '../components/Table'
 import Modal from '../components/Modal'
 import { Plus } from 'lucide-react'
 
-const empty = { funcionario_nome: '', associacao: '', unidade: '' }
+const empty = { funcionario_nome: '', associacao: '', unidade: '', comunidade_id: '' }
+const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
+const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
 const columns = [
   { key: 'funcionario_nome', label: 'Nome' },
   { key: 'associacao', label: 'Associação' },
   { key: 'unidade', label: 'Unidade' },
+  { key: 'comunidades', label: 'Comunidade', render: v => v?.nome ?? '—' },
 ]
-
-const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
-const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
 export default function Funcionarios() {
   const [data, setData] = useState([])
+  const [comunidades, setComunidades] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -25,24 +26,33 @@ export default function Funcionarios() {
 
   const load = async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('funcionarios_associacao').select('*').order('created_at', { ascending: false })
-    setData(rows ?? [])
+    const [funcRes, comRes] = await Promise.all([
+      supabase.from('funcionarios_associacao').select('*, comunidades(nome)').order('created_at', { ascending: false }),
+      supabase.from('comunidades').select('id, nome').order('nome'),
+    ])
+    setData(funcRes.data ?? [])
+    setComunidades(comRes.data ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
 
   const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
-  const openEdit = (row) => { setForm(row); setEditId(row.id); setModal(true) }
+  const openEdit = (row) => {
+    setForm({ ...row, comunidade_id: row.comunidade_id ?? '' })
+    setEditId(row.id)
+    setModal(true)
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { funcionario_nome, associacao, unidade } = form
+    const { funcionario_nome, associacao, unidade, comunidade_id } = form
+    const payload = { funcionario_nome, associacao, unidade, comunidade_id: comunidade_id || null }
     if (editId) {
-      await supabase.from('funcionarios_associacao').update({ funcionario_nome, associacao, unidade }).eq('id', editId)
+      await supabase.from('funcionarios_associacao').update(payload).eq('id', editId)
     } else {
-      await supabase.from('funcionarios_associacao').insert({ funcionario_nome, associacao, unidade })
+      await supabase.from('funcionarios_associacao').insert(payload)
     }
     setSaving(false)
     setModal(false)
@@ -88,14 +98,17 @@ export default function Funcionarios() {
             ].map(({ key, label, required }) => (
               <div key={key}>
                 <label className={labelCls}>{label}</label>
-                <input
-                  value={form[key] ?? ''}
-                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  required={required}
-                  className={inputCls}
-                />
+                <input value={form[key] ?? ''} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  required={required} className={inputCls} />
               </div>
             ))}
+            <div>
+              <label className={labelCls}>Comunidade</label>
+              <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value }))} className={inputCls}>
+                <option value="">— Sem comunidade —</option>
+                {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModal(false)}
                 className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">

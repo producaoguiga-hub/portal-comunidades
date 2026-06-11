@@ -4,13 +4,15 @@ import Table from '../components/Table'
 import Modal from '../components/Modal'
 import { Plus } from 'lucide-react'
 
-const empty = { nome: '', contato: '', regiao: '', associacao: '', status: 'ativo' }
+const empty = { nome: '', contato: '', regiao: '', associacao: '', status: 'ativo', comunidade_id: '' }
+const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
+const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
 const columns = [
   { key: 'nome', label: 'Nome' },
   { key: 'contato', label: 'Contato' },
   { key: 'regiao', label: 'Região' },
-  { key: 'associacao', label: 'Associação' },
+  { key: 'comunidades', label: 'Comunidade', render: v => v?.nome ?? '—' },
   {
     key: 'status', label: 'Status',
     render: v => (
@@ -21,11 +23,9 @@ const columns = [
   },
 ]
 
-const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
-const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
-
 export default function Lideres() {
   const [data, setData] = useState([])
+  const [comunidades, setComunidades] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -34,24 +34,33 @@ export default function Lideres() {
 
   const load = async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('lideres').select('*').order('created_at', { ascending: false })
-    setData(rows ?? [])
+    const [lidRes, comRes] = await Promise.all([
+      supabase.from('lideres').select('*, comunidades(nome)').order('created_at', { ascending: false }),
+      supabase.from('comunidades').select('id, nome').order('nome'),
+    ])
+    setData(lidRes.data ?? [])
+    setComunidades(comRes.data ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
 
   const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
-  const openEdit = (row) => { setForm(row); setEditId(row.id); setModal(true) }
+  const openEdit = (row) => {
+    setForm({ ...row, comunidade_id: row.comunidade_id ?? '' })
+    setEditId(row.id)
+    setModal(true)
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { nome, contato, regiao, associacao, status } = form
+    const { nome, contato, regiao, associacao, status, comunidade_id } = form
+    const payload = { nome, contato, regiao, associacao, status, comunidade_id: comunidade_id || null }
     if (editId) {
-      await supabase.from('lideres').update({ nome, contato, regiao, associacao, status }).eq('id', editId)
+      await supabase.from('lideres').update(payload).eq('id', editId)
     } else {
-      await supabase.from('lideres').insert({ nome, contato, regiao, associacao, status })
+      await supabase.from('lideres').insert(payload)
     }
     setSaving(false)
     setModal(false)
@@ -98,21 +107,20 @@ export default function Lideres() {
             ].map(({ key, label, required }) => (
               <div key={key}>
                 <label className={labelCls}>{label}</label>
-                <input
-                  value={form[key] ?? ''}
-                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  required={required}
-                  className={inputCls}
-                />
+                <input value={form[key] ?? ''} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  required={required} className={inputCls} />
               </div>
             ))}
             <div>
+              <label className={labelCls}>Comunidade</label>
+              <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value }))} className={inputCls}>
+                <option value="">— Sem comunidade —</option>
+                {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+            <div>
               <label className={labelCls}>Status</label>
-              <select
-                value={form.status}
-                onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className={inputCls}
-              >
+              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} className={inputCls}>
                 <option value="ativo">Ativo</option>
                 <option value="inativo">Inativo</option>
               </select>

@@ -2,10 +2,21 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import {
   Users, Briefcase, Heart, UserCheck, Calendar, LayoutDashboard,
-  LogOut, Menu, X, ChevronRight
+  LogOut, Menu, X, ChevronRight, Home, MapPin, Shield
 } from 'lucide-react'
 
-const navItems = [
+const navAdmin = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'lideres', label: 'Líderes', icon: Users },
+  { id: 'vagas', label: 'Vagas', icon: Briefcase },
+  { id: 'servicos', label: 'Serviços', icon: Heart },
+  { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
+  { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
+  { id: 'comunidades', label: 'Comunidades', icon: MapPin },
+  { id: 'usuarios', label: 'Usuários', icon: Shield },
+]
+
+const navGestor = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'lideres', label: 'Líderes', icon: Users },
   { id: 'vagas', label: 'Vagas', icon: Briefcase },
@@ -14,25 +25,29 @@ const navItems = [
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
 ]
 
+const navLider = [
+  { id: 'minha-comunidade', label: 'Minha Comunidade', icon: Home },
+]
+
 export default function Layout({ currentPage, onNavigate, children }) {
-  const { user, signOut } = useAuth()
+  const { user, role, liderSession, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  const navItems = liderSession ? navLider : role === 'admin' ? navAdmin : navGestor
+  const displayName = liderSession ? liderSession.comunidadeNome : user?.email
+  const displayRole = liderSession ? 'Líder Comunitário' : role === 'admin' ? 'Administrador' : 'Gestor'
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
       <aside className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-petroleum text-white flex flex-col transition-all duration-300 shrink-0 shadow-xl`}>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-petroleum-light">
           {sidebarOpen && (
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-5 rounded-sm bg-verde shrink-0" />
-                <span className="font-bold text-white text-sm leading-tight tracking-wide uppercase">
-                  Portal Comunidades
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-5 rounded-sm bg-verde shrink-0" />
+              <span className="font-bold text-white text-sm leading-tight tracking-wide uppercase">
+                Portal Comunidades
+              </span>
             </div>
           )}
           <button
@@ -43,8 +58,7 @@ export default function Layout({ currentPage, onNavigate, children }) {
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 py-4 space-y-0.5 px-2">
+        <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -65,10 +79,12 @@ export default function Layout({ currentPage, onNavigate, children }) {
           ))}
         </nav>
 
-        {/* Footer */}
         <div className="p-3 border-t border-petroleum-light">
           {sidebarOpen && (
-            <p className="text-oceano/60 text-xs truncate mb-2 px-1">{user?.email}</p>
+            <div className="mb-2 px-1">
+              <p className="text-white/70 text-xs truncate font-medium">{displayName}</p>
+              <p className="text-oceano/60 text-xs">{displayRole}</p>
+            </div>
           )}
           <button
             onClick={signOut}
@@ -81,7 +97,6 @@ export default function Layout({ currentPage, onNavigate, children }) {
         </div>
       </aside>
 
-      {/* Main */}
       <main className="flex-1 overflow-auto bg-gray-50">
         <div className="p-6 max-w-7xl mx-auto">
           {children}

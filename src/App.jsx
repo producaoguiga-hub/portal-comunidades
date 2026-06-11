@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -8,20 +8,31 @@ import Vagas from './pages/Vagas'
 import Servicos from './pages/Servicos'
 import Funcionarios from './pages/Funcionarios'
 import AcoesSociais from './pages/AcoesSociais'
+import MinhaComunidade from './pages/MinhaComunidade'
+import Comunidades from './pages/Comunidades'
+import Usuarios from './pages/Usuarios'
+
+const defaultPage = { admin: 'dashboard', gestor: 'dashboard', lider: 'minha-comunidade' }
 
 function AppContent() {
-  const { user, loading } = useAuth()
-  const [page, setPage] = useState('dashboard')
+  const { user, role, liderSession, loading } = useAuth()
+  const [page, setPage] = useState(null)
+
+  const currentRole = liderSession ? 'lider' : role
+
+  useEffect(() => {
+    if (currentRole) setPage(defaultPage[currentRole] ?? 'dashboard')
+  }, [currentRole])
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Carregando...</div>
+      <div className="min-h-screen bg-petroleum flex items-center justify-center">
+        <div className="text-verde/60 text-sm">Carregando...</div>
       </div>
     )
   }
 
-  if (!user) return <Login />
+  if (!user && !liderSession) return <Login />
 
   const pages = {
     dashboard: <Dashboard />,
@@ -30,6 +41,11 @@ function AppContent() {
     servicos: <Servicos />,
     funcionarios: <Funcionarios />,
     acoes: <AcoesSociais />,
+    'minha-comunidade': <MinhaComunidade />,
+    ...(role === 'admin' ? {
+      comunidades: <Comunidades />,
+      usuarios: <Usuarios />,
+    } : {}),
   }
 
   return (

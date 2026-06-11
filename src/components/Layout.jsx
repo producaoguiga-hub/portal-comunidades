@@ -43,12 +43,7 @@ export default function Layout({ currentPage, onNavigate, children }) {
 
         <div className="flex items-center justify-between px-4 py-4 border-b border-petroleum-light">
           {sidebarOpen && (
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-5 rounded-sm bg-verde shrink-0" />
-              <span className="font-bold text-white text-sm leading-tight tracking-wide uppercase">
-                Portal Comunidades
-              </span>
-            </div>
+            <img src="/logo-branca.png" alt="Comissão de Comunidades" className="h-8 w-auto object-contain" />
           )}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}

@@ -48,9 +48,9 @@ export default function Login() {
   const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1.5'
 
   return (
-    <div className="min-h-screen bg-petroleum flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-96 h-96 bg-verde/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-oceano/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{ backgroundImage: 'url(/fundo.tela.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <div className="absolute inset-0 bg-petroleum/70" />
 
       <div className="w-full max-w-md relative z-10">
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
@@ -58,13 +58,7 @@ export default function Login() {
 
           <div className="p-8">
             <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-petroleum rounded-2xl mb-4 shadow-lg">
-                <svg className="w-8 h-8 text-verde" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-petroleum tracking-tight">Portal Comunidades</h1>
+              <img src="/logo-colorida.jpeg" alt="Comissão de Comunidades" className="h-28 w-auto mx-auto mb-2 object-contain" />
             </div>
 
             {/* Tabs */}

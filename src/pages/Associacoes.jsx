@@ -10,7 +10,7 @@ const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracki
 
 const columns = [
   { key: 'nome', label: 'Associação' },
-  { key: 'sigla', label: 'Sigla', render: v => v ? <span className="px-2 py-0.5 bg-oceano/15 text-oceano rounded font-mono text-xs">{v}</span> : '—' },
+  { key: 'sigla', label: 'Sigla', render: v => v ? <span className="px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{v}</span> : '—' },
   { key: 'representante_legal', label: 'Representante Legal' },
   {
     key: 'telefone', label: 'Telefone / WhatsApp',

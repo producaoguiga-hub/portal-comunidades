@@ -4,7 +4,7 @@ import Table from '../components/Table'
 import Modal from '../components/Modal'
 import { Plus } from 'lucide-react'
 
-const empty = { nome: '', contato: '', regiao: '', associacao: '', status: 'ativo', comunidade_id: '' }
+const empty = { nome: '', contato: '', regiao: '', status: 'ativo', comunidade_id: '', associacao_id: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
@@ -13,6 +13,7 @@ const columns = [
   { key: 'contato', label: 'Contato' },
   { key: 'regiao', label: 'Região' },
   { key: 'comunidades', label: 'Comunidade', render: v => v?.nome ?? '—' },
+  { key: 'associacoes', label: 'Associação', render: v => v ? (v.sigla ?? v.nome) : '—' },
   {
     key: 'status', label: 'Status',
     render: v => (
@@ -26,6 +27,7 @@ const columns = [
 export default function Lideres() {
   const [data, setData] = useState([])
   const [comunidades, setComunidades] = useState([])
+  const [associacoes, setAssociacoes] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -34,12 +36,14 @@ export default function Lideres() {
 
   const load = async () => {
     setLoading(true)
-    const [lidRes, comRes] = await Promise.all([
-      supabase.from('lideres').select('*, comunidades(nome)').order('created_at', { ascending: false }),
+    const [lidRes, comRes, assocRes] = await Promise.all([
+      supabase.from('lideres').select('*, comunidades(nome), associacoes(id, nome, sigla)').order('created_at', { ascending: false }),
       supabase.from('comunidades').select('id, nome').order('nome'),
+      supabase.from('associacoes').select('id, nome, sigla').order('nome'),
     ])
     setData(lidRes.data ?? [])
     setComunidades(comRes.data ?? [])
+    setAssociacoes(assocRes.data ?? [])
     setLoading(false)
   }
 
@@ -47,7 +51,7 @@ export default function Lideres() {
 
   const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
   const openEdit = (row) => {
-    setForm({ ...row, comunidade_id: row.comunidade_id ?? '' })
+    setForm({ ...row, comunidade_id: row.comunidade_id ?? '', associacao_id: row.associacao_id ?? '' })
     setEditId(row.id)
     setModal(true)
   }
@@ -55,8 +59,8 @@ export default function Lideres() {
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { nome, contato, regiao, associacao, status, comunidade_id } = form
-    const payload = { nome, contato, regiao, associacao, status, comunidade_id: comunidade_id || null }
+    const { nome, contato, regiao, status, comunidade_id, associacao_id } = form
+    const payload = { nome, contato, regiao, status, comunidade_id: comunidade_id || null, associacao_id: associacao_id || null }
     if (editId) {
       await supabase.from('lideres').update(payload).eq('id', editId)
     } else {
@@ -103,7 +107,6 @@ export default function Lideres() {
               { key: 'nome', label: 'Nome', required: true },
               { key: 'contato', label: 'Contato' },
               { key: 'regiao', label: 'Região' },
-              { key: 'associacao', label: 'Associação' },
             ].map(({ key, label, required }) => (
               <div key={key}>
                 <label className={labelCls}>{label}</label>
@@ -111,6 +114,15 @@ export default function Lideres() {
                   required={required} className={inputCls} />
               </div>
             ))}
+            <div>
+              <label className={labelCls}>Associação</label>
+              <select value={form.associacao_id} onChange={e => setForm(f => ({ ...f, associacao_id: e.target.value }))} className={inputCls}>
+                <option value="">— Sem associação —</option>
+                {associacoes.map(a => (
+                  <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className={labelCls}>Comunidade</label>
               <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value }))} className={inputCls}>

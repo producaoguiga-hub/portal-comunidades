@@ -93,7 +93,7 @@ export default function Layout({ currentPage, onNavigate, children }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto bg-white/80 backdrop-blur-sm">
+      <main className="flex-1 overflow-auto bg-white/95">
         <div className="p-6 max-w-7xl mx-auto">
           {children}
         </div>

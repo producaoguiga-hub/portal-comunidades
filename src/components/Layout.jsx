@@ -30,6 +30,7 @@ const navGestor = [
 
 const navLider = [
   { id: 'minha-comunidade', label: 'Minha Comunidade', icon: Home },
+  { id: 'vagas', label: 'Banco de Talentos', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
 ]

@@ -23,7 +23,7 @@ function StatusBadge({ status }) {
   )
 }
 
-const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true }
+const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true, associacao_id: '' }
 const emptySolicitacao = { descricao: '', solicitante: '' }
 
 export default function Servicos() {
@@ -33,6 +33,7 @@ export default function Servicos() {
   const [servicos, setServicos] = useState([])
   const [solicitacoes, setSolicitacoes] = useState([])
   const [comunidades, setComunidades] = useState([])
+  const [associacoes, setAssociacoes] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('catalogo')
   const [filtroComId, setFiltroComId] = useState('')
@@ -47,17 +48,22 @@ export default function Servicos() {
 
   const load = async () => {
     setLoading(true)
-    let q = supabase.from('servicos_comunidade').select('*, comunidades(nome)').order('created_at', { ascending: false })
+    let q = supabase.from('servicos_comunidade').select('*, comunidades(nome), associacoes(id, nome, sigla)').order('created_at', { ascending: false })
     if (isLider) q = q.eq('comunidade_id', liderSession.comunidadeId)
 
-    const [svcRes, solRes, comRes] = await Promise.all([
+    let assocQ = supabase.from('associacoes').select('id, nome, sigla').order('nome')
+    if (isLider) assocQ = assocQ.eq('comunidade_id', liderSession.comunidadeId)
+
+    const [svcRes, solRes, comRes, assocRes] = await Promise.all([
       q,
       isLider ? Promise.resolve({ data: [] }) : supabase.from('solicitacoes_servico').select('*, servicos_comunidade(tipo, comunidades(nome))').order('created_at', { ascending: false }),
       supabase.from('comunidades').select('id, nome').order('nome'),
+      assocQ,
     ])
     setServicos(svcRes.data ?? [])
     setSolicitacoes(solRes.data ?? [])
     setComunidades(comRes.data ?? [])
+    setAssociacoes(assocRes.data ?? [])
     setLoading(false)
   }
 
@@ -65,7 +71,7 @@ export default function Servicos() {
 
   const openNovoServico = () => { setForm(emptyServico); setEditId(null); setModalServico(true) }
   const openEditServico = (row) => {
-    setForm({ tipo: row.tipo, descricao: row.descricao ?? '', contato: row.contato ?? '', disponivel: row.disponivel ?? true })
+    setForm({ tipo: row.tipo, descricao: row.descricao ?? '', contato: row.contato ?? '', disponivel: row.disponivel ?? true, associacao_id: row.associacao_id ?? '' })
     setEditId(row.id)
     setModalServico(true)
   }
@@ -78,6 +84,7 @@ export default function Servicos() {
       descricao: form.descricao || null,
       contato: form.contato || null,
       disponivel: form.disponivel,
+      associacao_id: form.associacao_id || null,
       comunidade_id: isLider ? liderSession.comunidadeId : null,
     }
     if (editId) {
@@ -188,6 +195,7 @@ export default function Servicos() {
                       <div>
                         <p className="font-semibold text-petroleum text-sm">{s.tipo}</p>
                         {!isLider && <p className="text-xs text-gray-400">{s.comunidades?.nome ?? '—'}</p>}
+                        {s.associacoes && <p className="text-xs text-oceano font-medium">{s.associacoes.sigla ?? s.associacoes.nome}</p>}
                       </div>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${s.disponivel ? 'bg-verde/30 text-petroleum' : 'bg-cinza-light text-gray-400'}`}>
@@ -285,6 +293,13 @@ export default function Servicos() {
               <label className={labelCls}>Contato / WhatsApp</label>
               <input value={form.contato} onChange={e => setForm(f => ({ ...f, contato: e.target.value }))}
                 className={inputCls} placeholder="(75) 9 9999-9999" />
+            </div>
+            <div>
+              <label className={labelCls}>Associação</label>
+              <select value={form.associacao_id} onChange={e => setForm(f => ({ ...f, associacao_id: e.target.value }))} className={inputCls}>
+                <option value="">— Sem associação —</option>
+                {associacoes.map(a => <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>)}
+              </select>
             </div>
             <div className="flex items-center gap-3">
               <input type="checkbox" id="disponivel" checked={form.disponivel}

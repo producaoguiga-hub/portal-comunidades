@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus, Users, MessageCircle } from 'lucide-react'
+import { Plus, Users, MessageCircle, Download, FileText } from 'lucide-react'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -15,7 +15,7 @@ const statusBadge = {
 }
 
 const emptyVaga    = { titulo: '', unidade: '', funcao: '', status: 'aberta', comunidade_id: '' }
-const emptyTalento = { nome: '', funcao: '', contato: '', observacoes: '' }
+const emptyTalento = { nome: '', funcao: '', contato: '', observacoes: '', curriculo_url: null }
 
 export default function Vagas() {
   const { role, liderSession } = useAuth()
@@ -38,6 +38,8 @@ export default function Vagas() {
   const [formTalento, setFormTalento] = useState(emptyTalento)
   const [editTalentoId, setEditTalentoId] = useState(null)
   const [savingTalento, setSavingTalento] = useState(false)
+
+  const [curriculo, setCurriculo] = useState(null)
 
   // modal "ver talentos" de uma vaga
   const [modalMatch, setModalMatch] = useState(false)
@@ -124,16 +126,29 @@ export default function Vagas() {
   ]
 
   // ── BANCO DE TALENTOS ──
-  const openNovoTalento = () => { setFormTalento(emptyTalento); setEditTalentoId(null); setModalTalento(true) }
-  const openEditTalento = (row) => { setFormTalento({ ...row }); setEditTalentoId(row.id); setModalTalento(true) }
+  const openNovoTalento = () => { setFormTalento(emptyTalento); setCurriculo(null); setEditTalentoId(null); setModalTalento(true) }
+  const openEditTalento = (row) => { setFormTalento({ ...row }); setCurriculo(null); setEditTalentoId(row.id); setModalTalento(true) }
 
   const handleSaveTalento = async (e) => {
     e.preventDefault()
     setSavingTalento(true)
     const { nome, funcao, contato, observacoes } = formTalento
+    let curriculo_url = formTalento.curriculo_url ?? null
+
+    if (curriculo) {
+      const ext = curriculo.name.split('.').pop()
+      const path = `${Date.now()}_${nome.replace(/\s+/g, '_')}.${ext}`
+      const { error: upErr } = await supabase.storage.from('curriculos').upload(path, curriculo, { upsert: true })
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('curriculos').getPublicUrl(path)
+        curriculo_url = urlData.publicUrl
+      }
+    }
+
     const payload = {
       nome, funcao: funcao || null, contato: contato || null, observacoes: observacoes || null,
-      comunidade_id: isLider ? liderSession.comunidadeId : null,
+      curriculo_url,
+      comunidade_id: isLider ? liderSession.comunidadeId : (formTalento.comunidade_id || null),
     }
     if (editTalentoId) {
       await supabase.from('banco_talentos').update(payload).eq('id', editTalentoId)
@@ -305,6 +320,12 @@ export default function Vagas() {
                       ) : <span className="text-xs text-gray-400">—</span>}
                     </div>
                     <div className={`${isLider ? 'col-span-4' : 'col-span-2'} flex items-center justify-end gap-1`}>
+                      {t.curriculo_url && (
+                        <a href={t.curriculo_url} target="_blank" rel="noreferrer" title="Baixar Currículo"
+                          className="p-1.5 text-oceano hover:text-petroleum rounded-lg hover:bg-oceano/10 transition-colors">
+                          <Download size={14} />
+                        </a>
+                      )}
                       <button onClick={() => openEditTalento(t)}
                         className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
                         Editar
@@ -396,6 +417,19 @@ export default function Vagas() {
               <textarea value={formTalento.observacoes ?? ''} onChange={e => setFormTalento(f => ({ ...f, observacoes: e.target.value }))}
                 rows={2} className={`${inputCls} resize-none`} placeholder="Experiência, disponibilidade..." />
             </div>
+            <div>
+              <label className={labelCls}>Currículo (PDF, DOC)</label>
+              {formTalento.curriculo_url && !curriculo && (
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText size={14} className="text-oceano shrink-0" />
+                  <a href={formTalento.curriculo_url} target="_blank" rel="noreferrer"
+                    className="text-xs text-oceano hover:underline truncate">Ver currículo atual</a>
+                </div>
+              )}
+              <input type="file" accept=".pdf,.doc,.docx,.odt"
+                onChange={e => setCurriculo(e.target.files[0] || null)}
+                className="w-full text-sm text-petroleum/70 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-oceano/10 file:text-oceano hover:file:bg-oceano/20 cursor-pointer" />
+            </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModalTalento(false)}
                 className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
@@ -422,12 +456,20 @@ export default function Vagas() {
                     <p className="text-xs text-gray-400">{t.comunidades?.nome ?? '—'}</p>
                     {t.observacoes && <p className="text-xs text-gray-400 mt-0.5">{t.observacoes}</p>}
                   </div>
-                  {t.contato && (
-                    <a href={`https://wa.me/55${t.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-1.5 text-xs text-green-500 hover:text-green-600 font-medium shrink-0 ml-3">
-                      <MessageCircle size={14} /> {t.contato}
-                    </a>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
+                    {t.curriculo_url && (
+                      <a href={t.curriculo_url} target="_blank" rel="noreferrer" title="Baixar Currículo"
+                        className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium">
+                        <Download size={13} /> CV
+                      </a>
+                    )}
+                    {t.contato && (
+                      <a href={`https://wa.me/55${t.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-green-500 hover:text-green-600 font-medium">
+                        <MessageCircle size={14} /> {t.contato}
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))
             )}

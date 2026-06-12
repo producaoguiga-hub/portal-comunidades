@@ -300,29 +300,29 @@ export default function Vagas() {
           ) : (
             <div>
               <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-petroleum/5 border-b text-xs font-semibold text-petroleum/70 uppercase tracking-wider">
-                <span className="col-span-3">Título</span>
+                <span className="col-span-2">Título</span>
                 <span className="col-span-2">Função</span>
-                <span className="col-span-2">Unidade</span>
+                <span className="col-span-1">Unidade</span>
                 <span className="col-span-2">Comunidade</span>
                 <span className="col-span-1">Status</span>
-                <span className="col-span-2 text-right">Ações</span>
+                <span className="col-span-4 text-right">Ações</span>
               </div>
               {vagas.map(v => (
                 <div key={v.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
-                  <span className="col-span-3 text-sm font-medium text-petroleum truncate">{v.titulo}</span>
+                  <span className="col-span-2 text-sm font-medium text-petroleum truncate">{v.titulo}</span>
                   <span className="col-span-2">
                     {v.funcao ? <span className="px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{v.funcao}</span> : <span className="text-xs text-gray-400">—</span>}
                   </span>
-                  <span className="col-span-2 text-xs text-gray-500 truncate">{v.unidade ?? '—'}</span>
+                  <span className="col-span-1 text-xs text-gray-500 truncate">{v.unidade ?? '—'}</span>
                   <span className="col-span-2 text-xs text-gray-500 truncate">{v.comunidades?.nome ?? '—'}</span>
                   <span className="col-span-1">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge[v.status] ?? 'bg-cinza-light text-gray-500'}`}>
                       {v.status?.replace('_', ' ')}
                     </span>
                   </span>
-                  <div className="col-span-2 flex items-center justify-end gap-1">
+                  <div className="col-span-4 flex items-center justify-end gap-1">
                     <button onClick={() => abrirCandidatos(v)} title="Ver candidatos inscritos"
-                      className="flex items-center gap-1 text-xs text-verde hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-verde/20 transition-colors">
+                      className="flex items-center gap-1 text-xs text-petroleum font-medium px-2 py-1.5 rounded-lg bg-oceano/15 hover:bg-oceano/25 transition-colors">
                       <UserPlus size={12} /> Candidatos
                     </button>
                     {v.funcao && (

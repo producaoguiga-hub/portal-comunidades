@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, CheckCircle, Clock, XCircle, Wrench } from 'lucide-react'
+import { Plus, CheckCircle, Clock, XCircle, Wrench, ImagePlus, X } from 'lucide-react'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
@@ -24,7 +24,7 @@ function StatusBadge({ status }) {
   )
 }
 
-const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true, associacao_id: '' }
+const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true, associacao_id: '', foto_url: null }
 const emptySolicitacao = { descricao: '', solicitante: '' }
 
 export default function Servicos() {
@@ -39,6 +39,7 @@ export default function Servicos() {
   const [tab, setTab] = useState('catalogo')
   const [filtroComId, setFiltroComId] = useState('')
 
+  const [foto, setFoto] = useState(null)
   const [modalServico, setModalServico] = useState(false)
   const [modalSolicitar, setModalSolicitar] = useState(false)
   const [servicoSelecionado, setServicoSelecionado] = useState(null)
@@ -70,9 +71,10 @@ export default function Servicos() {
 
   useEffect(() => { load() }, [])
 
-  const openNovoServico = () => { setForm(emptyServico); setEditId(null); setModalServico(true) }
+  const openNovoServico = () => { setForm(emptyServico); setFoto(null); setEditId(null); setModalServico(true) }
   const openEditServico = (row) => {
-    setForm({ tipo: row.tipo, descricao: row.descricao ?? '', contato: row.contato ?? '', disponivel: row.disponivel ?? true, associacao_id: row.associacao_id ?? '' })
+    setForm({ tipo: row.tipo, descricao: row.descricao ?? '', contato: row.contato ?? '', disponivel: row.disponivel ?? true, associacao_id: row.associacao_id ?? '', foto_url: row.foto_url ?? null })
+    setFoto(null)
     setEditId(row.id)
     setModalServico(true)
   }
@@ -80,12 +82,25 @@ export default function Servicos() {
   const handleSaveServico = async (e) => {
     e.preventDefault()
     setSaving(true)
+
+    let foto_url = form.foto_url ?? null
+    if (foto) {
+      const ext = foto.name.split('.').pop()
+      const path = `${Date.now()}_${form.tipo.replace(/\s+/g, '_')}.${ext}`
+      const { error: upErr } = await supabase.storage.from('fotos-servicos').upload(path, foto, { upsert: true })
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('fotos-servicos').getPublicUrl(path)
+        foto_url = urlData.publicUrl
+      }
+    }
+
     const payload = {
       tipo: form.tipo,
       descricao: form.descricao || null,
       contato: form.contato || null,
       disponivel: form.disponivel,
       associacao_id: form.associacao_id || null,
+      foto_url,
       comunidade_id: isLider ? liderSession.comunidadeId : null,
     }
     if (editId) {
@@ -187,22 +202,28 @@ export default function Servicos() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {servicosFiltrados.map(s => (
-                <div key={s.id} className={`bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-3 ${!s.disponivel ? 'opacity-60' : ''}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-oceano/15 flex items-center justify-center shrink-0">
-                        <Wrench size={15} className="text-oceano" />
-                      </div>
+                <div key={s.id} className={`bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden ${!s.disponivel ? 'opacity-60' : ''}`}>
+                  {s.foto_url ? (
+                    <div className="h-36 overflow-hidden">
+                      <img src={s.foto_url} alt={s.tipo} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="h-16 bg-oceano/10 flex items-center justify-center">
+                      <Wrench size={22} className="text-oceano/40" />
+                    </div>
+                  )}
+
+                  <div className="p-4 flex flex-col gap-3 flex-1">
+                    <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-semibold text-petroleum text-sm">{s.tipo}</p>
                         {!isLider && <p className="text-xs text-gray-400">{s.comunidades?.nome ?? '—'}</p>}
                         {s.associacoes && <p className="text-xs text-oceano font-medium">{s.associacoes.sigla ?? s.associacoes.nome}</p>}
                       </div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${s.disponivel ? 'bg-verde/30 text-petroleum' : 'bg-cinza-light text-gray-400'}`}>
+                        {s.disponivel ? 'Disponível' : 'Indisponível'}
+                      </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${s.disponivel ? 'bg-verde/30 text-petroleum' : 'bg-cinza-light text-gray-400'}`}>
-                      {s.disponivel ? 'Disponível' : 'Indisponível'}
-                    </span>
-                  </div>
 
                   {s.descricao && <p className="text-xs text-gray-500 leading-relaxed">{s.descricao}</p>}
 
@@ -231,6 +252,7 @@ export default function Servicos() {
                         Solicitar
                       </button>
                     )}
+                  </div>
                   </div>
                 </div>
               ))}
@@ -301,6 +323,36 @@ export default function Servicos() {
                 <option value="">— Sem associação —</option>
                 {associacoes.map(a => <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>)}
               </select>
+            </div>
+            <div>
+              <label className={labelCls}>Foto do Serviço</label>
+              {form.foto_url && !foto && (
+                <div className="relative mb-2 w-full h-32 rounded-lg overflow-hidden">
+                  <img src={form.foto_url} alt="Foto atual" className="w-full h-full object-cover" />
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, foto_url: null }))}
+                    className="absolute top-1.5 right-1.5 bg-white/80 hover:bg-white text-laranja rounded-full p-0.5 transition-colors">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+              {foto && (
+                <div className="relative mb-2 w-full h-32 rounded-lg overflow-hidden">
+                  <img src={URL.createObjectURL(foto)} alt="Preview" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setFoto(null)}
+                    className="absolute top-1.5 right-1.5 bg-white/80 hover:bg-white text-laranja rounded-full p-0.5 transition-colors">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
+              {!foto && !form.foto_url && (
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-cinza rounded-lg cursor-pointer hover:border-oceano hover:bg-oceano/5 transition-colors">
+                  <ImagePlus size={20} className="text-gray-300 mb-1" />
+                  <span className="text-xs text-gray-400">Clique para adicionar uma foto</span>
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={e => setFoto(e.target.files[0] || null)} />
+                </label>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <input type="checkbox" id="disponivel" checked={form.disponivel}

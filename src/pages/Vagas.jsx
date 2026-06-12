@@ -3,8 +3,17 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus, Users, Download, FileText } from 'lucide-react'
+import { Plus, Users, Download, FileText, Building2, MapPin } from 'lucide-react'
 import WhatsAppIcon from '../components/WhatsAppIcon'
+
+const avatarColors = [
+  'bg-oceano/20 text-oceano',
+  'bg-verde/40 text-petroleum',
+  'bg-laranja/20 text-laranja',
+  'bg-petroleum/10 text-petroleum',
+]
+const getInitials = (nome) => nome.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+const getAvatarColor = (nome) => avatarColors[nome.charCodeAt(0) % avatarColors.length]
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -293,65 +302,74 @@ export default function Vagas() {
             </div>
           )}
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            {loadingTalentos ? (
-              <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
-            ) : talentosFiltrados.length === 0 ? (
-              <div className="py-14 text-center text-cinza text-sm">
-                {isLider ? 'Nenhum talento cadastrado ainda. Adicione o primeiro!' : 'Nenhum talento encontrado.'}
-              </div>
-            ) : (
-              <div>
-                <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-petroleum/5 border-b text-xs font-semibold text-petroleum/70 uppercase tracking-wider">
-                  <span className="col-span-3">Nome</span>
-                  <span className="col-span-2">Função</span>
-                  {!isLider && <span className="col-span-2">Comunidade</span>}
-                  <span className="col-span-3">Contato</span>
-                  <span className={`${isLider ? 'col-span-4' : 'col-span-2'} text-right`}>Ações</span>
-                </div>
-                {talentosFiltrados.map(t => (
-                  <div key={t.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
-                    <div className="col-span-3">
-                      <p className="text-sm font-medium text-petroleum">{t.nome}</p>
-                      {t.associacoes && <p className="text-xs text-oceano/80 truncate">{t.associacoes.sigla ?? t.associacoes.nome}</p>}
-                      {t.observacoes && <p className="text-xs text-gray-400 truncate">{t.observacoes}</p>}
+          {loadingTalentos ? (
+            <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
+          ) : talentosFiltrados.length === 0 ? (
+            <div className="py-14 text-center text-cinza text-sm">
+              {isLider ? 'Nenhum talento cadastrado ainda. Adicione o primeiro!' : 'Nenhum talento encontrado.'}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {talentosFiltrados.map(t => (
+                <div key={t.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${getAvatarColor(t.nome)}`}>
+                      {getInitials(t.nome)}
                     </div>
-                    <span className="col-span-2">
-                      {t.funcao ? <span className="px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{t.funcao}</span> : <span className="text-xs text-gray-400">—</span>}
-                    </span>
-                    {!isLider && <span className="col-span-2 text-xs text-gray-500 truncate">{t.comunidades?.nome ?? '—'}</span>}
-                    <div className="col-span-3 flex items-center gap-2">
-                      {t.contato ? (
-                        <>
-                          <span className="text-xs text-gray-500">{t.contato}</span>
-                          <a href={`https://wa.me/55${t.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
-                            className="text-green-500 hover:text-green-600 transition-colors shrink-0">
-                            <WhatsAppIcon size={14} />
-                          </a>
-                        </>
-                      ) : <span className="text-xs text-gray-400">—</span>}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-petroleum leading-tight">{t.nome}</p>
+                      {t.funcao && (
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{t.funcao}</span>
+                      )}
                     </div>
-                    <div className={`${isLider ? 'col-span-4' : 'col-span-2'} flex items-center justify-end gap-1`}>
+                  </div>
+
+                  <div className="space-y-1">
+                    {t.associacoes && (
+                      <div className="flex items-center gap-1.5 text-xs text-oceano font-medium">
+                        <Building2 size={11} className="shrink-0" />
+                        <span className="truncate">{t.associacoes.sigla ?? t.associacoes.nome}</span>
+                      </div>
+                    )}
+                    {!isLider && t.comunidades && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <MapPin size={11} className="shrink-0" />
+                        <span className="truncate">{t.comunidades.nome}</span>
+                      </div>
+                    )}
+                    {t.observacoes && (
+                      <p className="text-xs text-gray-400 line-clamp-2 mt-1">{t.observacoes}</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-50">
+                    {t.contato ? (
+                      <a href={`https://wa.me/55${t.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-green-500 hover:text-green-600 font-medium transition-colors">
+                        <WhatsAppIcon size={13} /> {t.contato}
+                      </a>
+                    ) : <span />}
+                    <div className="flex items-center gap-1">
                       {t.curriculo_url && (
                         <a href={t.curriculo_url} target="_blank" rel="noreferrer" title="Baixar Currículo"
-                          className="p-1.5 text-oceano hover:text-petroleum rounded-lg hover:bg-oceano/10 transition-colors">
-                          <Download size={14} />
+                          className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium px-2 py-1 rounded-lg hover:bg-oceano/10 transition-colors">
+                          <Download size={12} /> CV
                         </a>
                       )}
                       <button onClick={() => openEditTalento(t)}
-                        className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
+                        className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1 rounded-lg hover:bg-oceano/10 transition-colors">
                         Editar
                       </button>
                       <button onClick={() => handleDeleteTalento(t.id)}
-                        className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-laranja/10 transition-colors">
+                        className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1 rounded-lg hover:bg-laranja/10 transition-colors">
                         Excluir
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

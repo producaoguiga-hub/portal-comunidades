@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { MapPin, UserCheck, Building2 } from 'lucide-react'
+import { MapPin, UserCheck, Building2, Phone } from 'lucide-react'
+import WhatsAppIcon from '../components/WhatsAppIcon'
 
 export default function MinhaComunidade() {
   const { liderSession } = useAuth()
@@ -43,9 +44,9 @@ export default function MinhaComunidade() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="px-5 py-4 border-b flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-oceano/15 flex items-center justify-center shrink-0">
-                <MapPin size={15} className="text-oceano" />
+                <Building2 size={15} className="text-oceano" />
               </div>
-              <h2 className="font-semibold text-petroleum text-sm">Associação da Comunidade</h2>
+              <h2 className="font-semibold text-petroleum text-sm">Associações da Comunidade</h2>
               <span className="ml-auto text-xs font-semibold text-oceano bg-oceano/10 px-2 py-0.5 rounded-full">
                 {associacoes.length}
               </span>
@@ -53,15 +54,33 @@ export default function MinhaComunidade() {
             {associacoes.length === 0 ? (
               <p className="px-5 py-8 text-sm text-cinza text-center">Nenhuma associação vinculada ainda.</p>
             ) : (
-              <div className="divide-y divide-gray-50">
+              <div className="p-4 space-y-3">
                 {associacoes.map(a => (
-                  <div key={a.id} className="px-5 py-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-petroleum">{a.nome}</p>
-                      {a.sigla && <span className="px-2 py-0.5 bg-oceano/15 text-oceano rounded font-mono text-xs">{a.sigla}</span>}
+                  <div key={a.id} className="rounded-xl border border-gray-100 p-4 hover:border-oceano/30 hover:bg-oceano/5 transition-colors">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <p className="text-sm font-semibold text-petroleum leading-tight">{a.nome}</p>
+                      {a.sigla && (
+                        <span className="px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-bold shrink-0">{a.sigla}</span>
+                      )}
                     </div>
-                    {a.representante_legal && <p className="text-xs text-gray-400 mt-0.5">Rep.: {a.representante_legal}</p>}
-                    {a.telefone && <p className="text-xs text-gray-400">{a.telefone}</p>}
+                    {a.representante_legal && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1">
+                        <UserCheck size={11} className="shrink-0 text-oceano" />
+                        {a.representante_legal}
+                      </div>
+                    )}
+                    {a.telefone && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                          <Phone size={11} className="shrink-0" />
+                          {a.telefone}
+                        </div>
+                        <a href={`https://wa.me/55${a.telefone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
+                          className="text-green-500 hover:text-green-600 transition-colors">
+                          <WhatsAppIcon size={13} />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

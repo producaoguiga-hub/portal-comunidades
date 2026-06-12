@@ -325,12 +325,12 @@ export default function Vagas() {
                   </div>
 
                   <div className="space-y-1">
-                    {t.associacoes && (
-                      <div className="flex items-center gap-1.5 text-xs text-oceano font-medium">
-                        <Building2 size={11} className="shrink-0" />
-                        <span className="truncate">{t.associacoes.sigla ?? t.associacoes.nome}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs font-medium truncate">
+                      <Building2 size={11} className={`shrink-0 ${t.associacoes ? 'text-oceano' : 'text-gray-300'}`} />
+                      <span className={t.associacoes ? 'text-oceano' : 'text-gray-300'}>
+                        {t.associacoes ? (t.associacoes.sigla ?? t.associacoes.nome) : 'Sem associação'}
+                      </span>
+                    </div>
                     {!isLider && t.comunidades && (
                       <div className="flex items-center gap-1.5 text-xs text-gray-400">
                         <MapPin size={11} className="shrink-0" />

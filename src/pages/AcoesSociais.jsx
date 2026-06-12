@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, Download, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Plus, Download, CheckCircle, XCircle, Clock, Building2, MapPin, CalendarDays, Banknote } from 'lucide-react'
 
 const TIPOS = ['Financeiro', 'Material', 'Infraestrutura', 'Saúde', 'Educação', 'Evento', 'Outro']
 
@@ -149,80 +149,99 @@ export default function AcoesSociais() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {loading ? (
-          <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
-        ) : data.length === 0 ? (
-          <div className="py-14 text-center text-cinza text-sm">Nenhuma solicitação cadastrada.</div>
-        ) : (
-          <div>
-            {/* Header */}
-            <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-petroleum/5 border-b text-xs font-semibold text-petroleum/70 uppercase tracking-wider">
-              <span className="col-span-3">Título</span>
-              <span className="col-span-2">Tipo</span>
-              <span className="col-span-2">{isLider ? 'Data' : 'Comunidade'}</span>
-              <span className="col-span-1">Valor</span>
-              <span className="col-span-2">Status</span>
-              <span className="col-span-2 text-right">Ações</span>
-            </div>
+      {loading ? (
+        <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
+      ) : data.length === 0 ? (
+        <div className="py-14 text-center text-cinza text-sm">Nenhuma solicitação cadastrada.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {data.map(row => (
+            <div key={row.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
 
-            {data.map(row => (
-              <div key={row.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
-                <div className="col-span-3">
-                  <p className="text-sm font-medium text-petroleum truncate">{row.titulo ?? '—'}</p>
-                  {row.associacoes && <p className="text-xs text-oceano/80 truncate">{row.associacoes.sigla ?? row.associacoes.nome}</p>}
-                  {row.descricao && <p className="text-xs text-gray-400 truncate">{row.descricao}</p>}
+              {/* Topo: status + data */}
+              <div className="flex items-center justify-between">
+                <StatusBadge status={row.status} />
+                {row.data && (
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <CalendarDays size={11} />
+                    {new Date(row.data).toLocaleDateString('pt-BR')}
+                  </div>
+                )}
+              </div>
+
+              {/* Título + tipo */}
+              <div>
+                <p className="font-semibold text-petroleum leading-tight">{row.titulo ?? '—'}</p>
+                {row.tipo_apoio && (
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-petroleum/10 text-petroleum rounded text-xs font-semibold">{row.tipo_apoio}</span>
+                )}
+              </div>
+
+              {/* Associação + comunidade */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <Building2 size={11} className={`shrink-0 ${row.associacoes ? 'text-oceano' : 'text-gray-300'}`} />
+                  <span className={row.associacoes ? 'text-oceano' : 'text-gray-300'}>
+                    {row.associacoes ? (row.associacoes.sigla ?? row.associacoes.nome) : 'Sem associação'}
+                  </span>
                 </div>
-                <span className="col-span-2 text-xs text-gray-500">{row.tipo_apoio ?? '—'}</span>
-                <span className="col-span-2 text-xs text-gray-500 truncate">
-                  {isLider
-                    ? (row.data ? new Date(row.data).toLocaleDateString('pt-BR') : '—')
-                    : (row.comunidades?.nome ?? '—')}
-                </span>
-                <span className="col-span-1 text-xs text-gray-500">
-                  {row.valor_solicitado ? `R$ ${Number(row.valor_solicitado).toLocaleString('pt-BR')}` : '—'}
-                </span>
-                <div className="col-span-2">
-                  <StatusBadge status={row.status} />
+                {!isLider && row.comunidades && (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                    <MapPin size={11} className="shrink-0" />
+                    {row.comunidades.nome}
+                  </div>
+                )}
+              </div>
+
+              {/* Descrição */}
+              {row.descricao && (
+                <p className="text-xs text-gray-400 line-clamp-2">{row.descricao}</p>
+              )}
+
+              {/* Rodapé: valor + ações */}
+              <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-petroleum">
+                  <Banknote size={14} className="text-verde shrink-0" />
+                  {row.valor_solicitado ? `R$ ${Number(row.valor_solicitado).toLocaleString('pt-BR')}` : '—'}
                 </div>
-                <div className="col-span-2 flex items-center justify-end gap-1">
+                <div className="flex items-center gap-1">
                   {row.oficio_url && (
-                    <a href={row.oficio_url} target="_blank" rel="noreferrer"
-                      title="Ver Ofício"
-                      className="p-1.5 text-oceano hover:bg-oceano/10 rounded-lg transition-colors">
-                      <Download size={14} />
+                    <a href={row.oficio_url} target="_blank" rel="noreferrer" title="Ver Ofício"
+                      className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium px-2 py-1 rounded-lg hover:bg-oceano/10 transition-colors">
+                      <Download size={12} /> Ofício
                     </a>
                   )}
                   {!isLider && row.status !== 'aprovado' && (
                     <button onClick={() => changeStatus(row.id, 'aprovado')} disabled={updatingStatus === row.id}
                       title="Aprovar" className="p-1.5 text-verde hover:bg-verde/20 rounded-lg transition-colors disabled:opacity-40">
-                      <CheckCircle size={14} />
+                      <CheckCircle size={15} />
                     </button>
                   )}
                   {!isLider && row.status !== 'rejeitado' && (
                     <button onClick={() => changeStatus(row.id, 'rejeitado')} disabled={updatingStatus === row.id}
                       title="Rejeitar" className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40">
-                      <XCircle size={14} />
+                      <XCircle size={15} />
                     </button>
                   )}
-                  {(isLider && row.status === 'pendente') || role === 'admin' ? (
+                  {((isLider && row.status === 'pendente') || role === 'admin') && (
                     <button onClick={() => openEdit(row)}
-                      className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
+                      className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1 rounded-lg hover:bg-oceano/10 transition-colors">
                       Editar
                     </button>
-                  ) : null}
+                  )}
                   {role === 'admin' && (
                     <button onClick={() => handleDelete(row.id)}
-                      className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-laranja/10 transition-colors">
+                      className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1 rounded-lg hover:bg-laranja/10 transition-colors">
                       Excluir
                     </button>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+
+            </div>
+          ))}
+        </div>
+      )}
 
       {modal && (
         <Modal title={editId ? 'Editar Solicitação' : 'Nova Solicitação'} onClose={() => setModal(false)}>

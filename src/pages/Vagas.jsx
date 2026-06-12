@@ -292,53 +292,66 @@ export default function Vagas() {
 
       {/* ── ABA VAGAS ── */}
       {tab === 'vagas' && !isLider && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div>
           {loadingVagas ? (
             <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
           ) : vagas.length === 0 ? (
             <div className="py-14 text-center text-cinza text-sm">Nenhuma vaga cadastrada.</div>
           ) : (
-            <div>
-              <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-petroleum/5 border-b text-xs font-semibold text-petroleum/70 uppercase tracking-wider">
-                <span className="col-span-2">Título</span>
-                <span className="col-span-2">Função</span>
-                <span className="col-span-1">Unidade</span>
-                <span className="col-span-2">Comunidade</span>
-                <span className="col-span-1">Status</span>
-                <span className="col-span-4 text-right">Ações</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {vagas.map(v => (
-                <div key={v.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
-                  <span className="col-span-2 text-sm font-medium text-petroleum truncate">{v.titulo}</span>
-                  <span className="col-span-2">
-                    {v.funcao ? <span className="px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{v.funcao}</span> : <span className="text-xs text-gray-400">—</span>}
-                  </span>
-                  <span className="col-span-1 text-xs text-gray-500 truncate">{v.unidade ?? '—'}</span>
-                  <span className="col-span-2 text-xs text-gray-500 truncate">{v.comunidades?.nome ?? '—'}</span>
-                  <span className="col-span-1">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusBadge[v.status] ?? 'bg-cinza-light text-gray-500'}`}>
+                <div key={v.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                  {/* Topo: status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-petroleum leading-tight truncate">{v.titulo}</p>
+                      {v.funcao && (
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{v.funcao}</span>
+                      )}
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${statusBadge[v.status] ?? 'bg-cinza-light text-gray-500'}`}>
                       {v.status?.replace('_', ' ')}
                     </span>
-                  </span>
-                  <div className="col-span-4 flex items-center justify-end gap-1">
-                    <button onClick={() => abrirCandidatos(v)} title="Ver candidatos inscritos"
-                      className="flex items-center gap-1 text-xs text-petroleum font-medium px-2 py-1.5 rounded-lg bg-oceano/15 hover:bg-oceano/25 transition-colors">
-                      <UserPlus size={12} /> Candidatos
-                    </button>
-                    {v.funcao && (
-                      <button onClick={() => abrirMatch(v)} title="Ver talentos compatíveis"
-                        className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
-                        <Users size={12} /> Talentos
-                      </button>
+                  </div>
+
+                  {/* Info */}
+                  <div className="space-y-1">
+                    {v.unidade && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <Building2 size={11} className="shrink-0" /> {v.unidade}
+                      </div>
                     )}
-                    <button onClick={() => openEditVaga(v)}
-                      className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
-                      Editar
-                    </button>
-                    <button onClick={() => handleDeleteVaga(v.id)}
-                      className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-laranja/10 transition-colors">
-                      Excluir
-                    </button>
+                    {v.comunidades && (
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <MapPin size={11} className="shrink-0" /> {v.comunidades.nome}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ações */}
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => abrirCandidatos(v)}
+                        className="flex items-center gap-1 text-xs text-petroleum font-medium px-2 py-1.5 rounded-lg bg-oceano/15 hover:bg-oceano/25 transition-colors">
+                        <UserPlus size={12} /> Candidatos
+                      </button>
+                      {v.funcao && (
+                        <button onClick={() => abrirMatch(v)}
+                          className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
+                          <Users size={12} /> Talentos
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEditVaga(v)}
+                        className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
+                        Editar
+                      </button>
+                      <button onClick={() => handleDeleteVaga(v.id)}
+                        className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-laranja/10 transition-colors">
+                        Excluir
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

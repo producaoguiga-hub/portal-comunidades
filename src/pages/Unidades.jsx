@@ -2,46 +2,46 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus, Eye, EyeOff } from 'lucide-react'
+import { Plus, Layers } from 'lucide-react'
 
-const empty = { nome: '', pin: '' }
+const empty = { nome: '', descricao: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
 const columns = [
-  { key: 'nome', label: 'Nome da Comunidade' },
-  { key: 'pin', label: 'PIN', render: v => <span className="font-mono font-bold text-petroleum tracking-widest">{v}</span> },
+  { key: 'nome', label: 'Nome da Unidade' },
+  { key: 'descricao', label: 'Descrição', render: v => v ?? '—' },
 ]
 
-export default function Comunidades() {
+export default function Unidades() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
   const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [showPin, setShowPin] = useState(false)
 
   const load = async () => {
     setLoading(true)
-    const { data: rows } = await supabase.from('comunidades').select('*').order('nome')
+    const { data: rows } = await supabase.from('unidades').select('*').order('nome')
     setData(rows ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
 
-  const openCreate = () => { setForm(empty); setEditId(null); setShowPin(false); setModal(true) }
-  const openEdit = (row) => { setForm(row); setEditId(row.id); setShowPin(false); setModal(true) }
+  const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
+  const openEdit = (row) => { setForm({ nome: row.nome, descricao: row.descricao ?? '' }); setEditId(row.id); setModal(true) }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { nome, pin } = form
+    const { nome, descricao } = form
+    const payload = { nome, descricao: descricao || null }
     if (editId) {
-      await supabase.from('comunidades').update({ nome, pin }).eq('id', editId)
+      await supabase.from('unidades').update(payload).eq('id', editId)
     } else {
-      await supabase.from('comunidades').insert({ nome, pin })
+      await supabase.from('unidades').insert(payload)
     }
     setSaving(false)
     setModal(false)
@@ -49,8 +49,8 @@ export default function Comunidades() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Excluir comunidade? Líderes vinculados perderão o acesso.')) return
-    await supabase.from('comunidades').delete().eq('id', id)
+    if (!confirm('Excluir unidade? Funcionários e vagas vinculados perderão esta referência.')) return
+    await supabase.from('unidades').delete().eq('id', id)
     load()
   }
 
@@ -60,54 +60,50 @@ export default function Comunidades() {
         <div className="flex items-center gap-3">
           <div className="w-1 h-7 bg-oceano rounded-full" />
           <div>
-            <h1 className="text-2xl font-bold text-petroleum">Comunidades</h1>
-            <p className="text-gray-400 text-sm">Gerenciar comunidades e PINs de acesso</p>
+            <h1 className="text-2xl font-bold text-petroleum">Unidades</h1>
+            <p className="text-gray-400 text-sm">Unidades internas para vincular funcionários e vagas</p>
           </div>
         </div>
         <button onClick={openCreate} className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
-          <Plus size={15} /> Nova Comunidade
+          <Plus size={15} /> Nova Unidade
         </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         {loading ? (
           <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
+        ) : data.length === 0 ? (
+          <div className="py-14 text-center text-cinza text-sm flex flex-col items-center gap-3">
+            <Layers size={32} className="text-gray-200" />
+            <p>Nenhuma unidade cadastrada ainda.</p>
+          </div>
         ) : (
           <Table columns={columns} data={data} onEdit={openEdit} onDelete={handleDelete} />
         )}
       </div>
 
       {modal && (
-        <Modal title={editId ? 'Editar Comunidade' : 'Nova Comunidade'} onClose={() => setModal(false)}>
+        <Modal title={editId ? 'Editar Unidade' : 'Nova Unidade'} onClose={() => setModal(false)}>
           <form onSubmit={handleSave} className="space-y-4">
             <div>
-              <label className={labelCls}>Nome da Comunidade</label>
+              <label className={labelCls}>Nome da Unidade *</label>
               <input
                 value={form.nome}
                 onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
                 required
                 className={inputCls}
-                placeholder="Ex: Vila Nova"
+                placeholder="Ex: Equipe de Pintura, Manutenção..."
               />
             </div>
             <div>
-              <label className={labelCls}>PIN de Acesso</label>
-              <div className="relative">
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  value={form.pin}
-                  onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
-                  required
-                  maxLength={10}
-                  className={`${inputCls} pr-10`}
-                  placeholder="Ex: 1234"
-                />
-                <button type="button" onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-cinza hover:text-petroleum transition-colors">
-                  {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">Entre 4 e 10 caracteres. Compartilhe com os líderes da comunidade.</p>
+              <label className={labelCls}>Descrição</label>
+              <textarea
+                value={form.descricao}
+                onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
+                rows={3}
+                className={`${inputCls} resize-none`}
+                placeholder="Detalhe a função desta unidade..."
+              />
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModal(false)}

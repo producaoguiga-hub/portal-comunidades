@@ -25,7 +25,7 @@ function StatusBadge({ status }) {
 }
 
 const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true, associacao_id: '', foto_url: null }
-const emptySolicitacao = { descricao: '', solicitante: '' }
+const emptySolicitacao = { descricao: '', solicitante: '', unidade: '' }
 
 export default function Servicos() {
   const { role, liderSession } = useAuth()
@@ -58,7 +58,7 @@ export default function Servicos() {
 
     const [svcRes, solRes, comRes, assocRes] = await Promise.all([
       q,
-      isLider ? Promise.resolve({ data: [] }) : supabase.from('solicitacoes_servico').select('*, servicos_comunidade(tipo, comunidades(nome))').order('created_at', { ascending: false }),
+      isLider ? Promise.resolve({ data: [] }) : supabase.from('solicitacoes_servico').select('*, servicos_comunidade(tipo, comunidades(nome), associacoes(nome, sigla))').order('created_at', { ascending: false }),
       supabase.from('comunidades').select('id, nome').order('nome'),
       assocQ,
     ])
@@ -128,6 +128,7 @@ export default function Servicos() {
       servico_id: servicoSelecionado.id,
       descricao: formSol.descricao || null,
       solicitante: formSol.solicitante || null,
+      unidade: formSol.unidade || null,
       status: 'pendente',
     })
     setSaving(false)
@@ -268,30 +269,38 @@ export default function Servicos() {
             ) : (
               <div>
                 <div className="grid grid-cols-12 gap-2 px-5 py-3 bg-petroleum/5 border-b text-xs font-semibold text-petroleum/70 uppercase tracking-wider">
-                  <span className="col-span-3">Serviço</span>
+                  <span className="col-span-2">Serviço</span>
+                  <span className="col-span-2">Associação</span>
                   <span className="col-span-2">Comunidade</span>
-                  <span className="col-span-3">Descrição</span>
                   <span className="col-span-2">Solicitante</span>
+                  <span className="col-span-2">Descrição</span>
                   <span className="col-span-2 text-right">Status</span>
                 </div>
-                {solicitacoes.map(sol => (
-                  <div key={sol.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
-                    <span className="col-span-3 text-sm font-medium text-petroleum truncate">{sol.servicos_comunidade?.tipo ?? '—'}</span>
-                    <span className="col-span-2 text-xs text-gray-500 truncate">{sol.servicos_comunidade?.comunidades?.nome ?? '—'}</span>
-                    <span className="col-span-3 text-xs text-gray-500 truncate">{sol.descricao ?? '—'}</span>
-                    <span className="col-span-2 text-xs text-gray-500 truncate">{sol.solicitante ?? '—'}</span>
-                    <div className="col-span-2 flex items-center justify-end gap-1">
-                      <StatusBadge status={sol.status} />
-                      <select value={sol.status} onChange={e => changeStatus(sol.id, e.target.value)}
-                        className="text-xs border border-cinza rounded px-1.5 py-1 text-petroleum ml-1 focus:outline-none focus:ring-1 focus:ring-oceano">
-                        <option value="pendente">Pendente</option>
-                        <option value="aprovado">Aprovado</option>
-                        <option value="concluido">Concluído</option>
-                        <option value="cancelado">Cancelado</option>
-                      </select>
+                {solicitacoes.map(sol => {
+                  const assoc = sol.servicos_comunidade?.associacoes
+                  return (
+                    <div key={sol.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
+                      <span className="col-span-2 text-sm font-medium text-petroleum truncate">{sol.servicos_comunidade?.tipo ?? '—'}</span>
+                      <span className="col-span-2 text-xs text-oceano font-medium truncate">{assoc ? (assoc.sigla ?? assoc.nome) : '—'}</span>
+                      <span className="col-span-2 text-xs text-gray-500 truncate">{sol.servicos_comunidade?.comunidades?.nome ?? '—'}</span>
+                      <div className="col-span-2">
+                        <p className="text-xs text-gray-700 font-medium truncate">{sol.solicitante ?? '—'}</p>
+                        {sol.unidade && <p className="text-xs text-oceano truncate">{sol.unidade}</p>}
+                      </div>
+                      <span className="col-span-2 text-xs text-gray-500 truncate">{sol.descricao ?? '—'}</span>
+                      <div className="col-span-2 flex items-center justify-end gap-1">
+                        <StatusBadge status={sol.status} />
+                        <select value={sol.status} onChange={e => changeStatus(sol.id, e.target.value)}
+                          className="text-xs border border-cinza rounded px-1.5 py-1 text-petroleum ml-1 focus:outline-none focus:ring-1 focus:ring-oceano">
+                          <option value="pendente">Pendente</option>
+                          <option value="aprovado">Aprovado</option>
+                          <option value="concluido">Concluído</option>
+                          <option value="cancelado">Cancelado</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -382,10 +391,17 @@ export default function Servicos() {
               <p className="font-semibold">{servicoSelecionado.tipo}</p>
               <p className="text-xs text-gray-500 mt-0.5">{servicoSelecionado.comunidades?.nome}</p>
             </div>
-            <div>
-              <label className={labelCls}>Solicitante</label>
-              <input value={formSol.solicitante} onChange={e => setFormSol(f => ({ ...f, solicitante: e.target.value }))}
-                className={inputCls} placeholder="Nome ou setor" />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Solicitante *</label>
+                <input value={formSol.solicitante} onChange={e => setFormSol(f => ({ ...f, solicitante: e.target.value }))}
+                  required className={inputCls} placeholder="Nome da pessoa" />
+              </div>
+              <div>
+                <label className={labelCls}>Unidade</label>
+                <input value={formSol.unidade} onChange={e => setFormSol(f => ({ ...f, unidade: e.target.value }))}
+                  className={inputCls} placeholder="Ex: Equipe de Pintura" />
+              </div>
             </div>
             <div>
               <label className={labelCls}>Descrição da Solicitação</label>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import {
   Users, Briefcase, Heart, UserCheck, Calendar, LayoutDashboard,
-  LogOut, Menu, X, ChevronRight, Home, MapPin, Shield, Building2, Map
+  LogOut, Menu, X, ChevronRight, Home, MapPin, Shield, Building2, Map, Layers
 } from 'lucide-react'
 
 const navAdmin = [
@@ -11,6 +11,7 @@ const navAdmin = [
   { id: 'vagas', label: 'Vagas', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
+  { id: 'unidades', label: 'Unidades', icon: Layers },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
   { id: 'mapa', label: 'Mapa', icon: Map },
   { id: 'comunidades', label: 'Comunidades', icon: MapPin },
@@ -23,9 +24,9 @@ const navGestor = [
   { id: 'vagas', label: 'Vagas', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
+  { id: 'unidades', label: 'Unidades', icon: Layers },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
   { id: 'mapa', label: 'Mapa', icon: Map },
-  { id: 'associacoes', label: 'Associações', icon: Building2 },
 ]
 
 const navLider = [

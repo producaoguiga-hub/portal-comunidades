@@ -18,6 +18,8 @@ const columns = [
 export default function Funcionarios() {
   const [data, setData] = useState([])
   const [comunidades, setComunidades] = useState([])
+  const [associacoes, setAssociacoes] = useState([])
+  const [unidades, setUnidades] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -26,12 +28,16 @@ export default function Funcionarios() {
 
   const load = async () => {
     setLoading(true)
-    const [funcRes, comRes] = await Promise.all([
+    const [funcRes, comRes, assocRes, unidRes] = await Promise.all([
       supabase.from('funcionarios_associacao').select('*, comunidades(nome)').order('created_at', { ascending: false }),
       supabase.from('comunidades').select('id, nome').order('nome'),
+      supabase.from('associacoes').select('id, nome, sigla, comunidade_id').order('nome'),
+      supabase.from('unidades').select('id, nome').order('nome'),
     ])
     setData(funcRes.data ?? [])
     setComunidades(comRes.data ?? [])
+    setAssociacoes(assocRes.data ?? [])
+    setUnidades(unidRes.data ?? [])
     setLoading(false)
   }
 
@@ -91,22 +97,41 @@ export default function Funcionarios() {
       {modal && (
         <Modal title={editId ? 'Editar Funcionário' : 'Novo Funcionário'} onClose={() => setModal(false)}>
           <form onSubmit={handleSave} className="space-y-4">
-            {[
-              { key: 'funcionario_nome', label: 'Nome', required: true },
-              { key: 'associacao', label: 'Associação' },
-              { key: 'unidade', label: 'Unidade' },
-            ].map(({ key, label, required }) => (
-              <div key={key}>
-                <label className={labelCls}>{label}</label>
-                <input value={form[key] ?? ''} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  required={required} className={inputCls} />
-              </div>
-            ))}
+            <div>
+              <label className={labelCls}>Nome *</label>
+              <input value={form.funcionario_nome ?? ''} onChange={e => setForm(f => ({ ...f, funcionario_nome: e.target.value }))}
+                required className={inputCls} placeholder="Nome completo" />
+            </div>
             <div>
               <label className={labelCls}>Comunidade</label>
-              <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value }))} className={inputCls}>
+              <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value, associacao: '' }))} className={inputCls}>
                 <option value="">— Sem comunidade —</option>
                 {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Associação</label>
+              <select
+                value={form.associacao ?? ''}
+                onChange={e => setForm(f => ({ ...f, associacao: e.target.value }))}
+                className={inputCls}
+              >
+                <option value="">— Selecione a associação —</option>
+                {associacoes
+                  .filter(a => !form.comunidade_id || a.comunidade_id === form.comunidade_id)
+                  .map(a => (
+                    <option key={a.id} value={a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}>
+                      {a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Unidade</label>
+              <select value={form.unidade ?? ''} onChange={e => setForm(f => ({ ...f, unidade: e.target.value }))} className={inputCls}>
+                <option value="">— Sem unidade —</option>
+                {unidades.map(u => <option key={u.id} value={u.nome}>{u.nome}</option>)}
               </select>
             </div>
             <div className="flex gap-3 pt-2">

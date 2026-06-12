@@ -24,7 +24,7 @@ const statusBadge = {
   fechada:      'bg-cinza-light text-gray-500',
 }
 
-const emptyVaga    = { titulo: '', unidade: '', funcao: '', status: 'aberta', comunidade_id: '' }
+const emptyVaga    = { titulo: '', unidade_id: '', funcao: '', status: 'aberta', comunidade_id: '' }
 const emptyTalento = { nome: '', funcao: '', contato: '', observacoes: '', curriculo_url: null, associacao_id: '' }
 
 export default function Vagas() {
@@ -74,10 +74,11 @@ export default function Vagas() {
 
   const [comunidades, setComunidades] = useState([])
   const [associacoes, setAssociacoes] = useState([])
+  const [unidades, setUnidades] = useState([])
 
   const loadVagas = async () => {
     setLoadingVagas(true)
-    const { data } = await supabase.from('vagas').select('*, comunidades(nome)').order('created_at', { ascending: false })
+    const { data } = await supabase.from('vagas').select('*, comunidades(nome), unidades(nome)').order('created_at', { ascending: false })
     setVagas(data ?? [])
     setLoadingVagas(false)
   }
@@ -92,16 +93,17 @@ export default function Vagas() {
   }
 
   const loadComunidades = async () => {
-    const [comRes, assocRes] = await Promise.all([
+    const [comRes, assocRes, unidRes] = await Promise.all([
       supabase.from('comunidades').select('id, nome').order('nome'),
       supabase.from('associacoes').select('id, nome, sigla, comunidade_id').order('nome'),
+      supabase.from('unidades').select('id, nome').order('nome'),
     ])
     setComunidades(comRes.data ?? [])
     setAssociacoes(assocRes.data ?? [])
+    setUnidades(unidRes.data ?? [])
   }
 
   const loadMinhasCandidaturas = async () => {
-    if (!isLider) return
     const { data } = await supabase.from('candidaturas').select('vaga_id, talento_id')
     const map = {}
     for (const c of data ?? []) {
@@ -150,13 +152,13 @@ export default function Vagas() {
 
   // ── VAGAS ──
   const openNovaVaga    = () => { setFormVaga(emptyVaga); setEditVagaId(null); setModalVaga(true) }
-  const openEditVaga    = (row) => { setFormVaga({ ...row, comunidade_id: row.comunidade_id ?? '' }); setEditVagaId(row.id); setModalVaga(true) }
+  const openEditVaga    = (row) => { setFormVaga({ ...row, comunidade_id: row.comunidade_id ?? '', unidade_id: row.unidade_id ?? '' }); setEditVagaId(row.id); setModalVaga(true) }
 
   const handleSaveVaga = async (e) => {
     e.preventDefault()
     setSavingVaga(true)
-    const { titulo, unidade, funcao, status, comunidade_id } = formVaga
-    const payload = { titulo, unidade, funcao: funcao || null, status, comunidade_id: comunidade_id || null }
+    const { titulo, unidade_id, funcao, status, comunidade_id } = formVaga
+    const payload = { titulo, unidade_id: unidade_id || null, funcao: funcao || null, status, comunidade_id: comunidade_id || null }
     if (editVagaId) {
       await supabase.from('vagas').update(payload).eq('id', editVagaId)
     } else {
@@ -316,9 +318,9 @@ export default function Vagas() {
 
                   {/* Info */}
                   <div className="space-y-1">
-                    {v.unidade && (
+                    {v.unidades && (
                       <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                        <Building2 size={11} className="shrink-0" /> {v.unidade}
+                        <Building2 size={11} className="shrink-0" /> {v.unidades.nome}
                       </div>
                     )}
                     {v.comunidades && (
@@ -330,10 +332,14 @@ export default function Vagas() {
 
                   {/* Ações */}
                   <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       <button onClick={() => abrirCandidatos(v)}
                         className="flex items-center gap-1 text-xs text-petroleum font-medium px-2 py-1.5 rounded-lg bg-oceano/15 hover:bg-oceano/25 transition-colors">
                         <UserPlus size={12} /> Candidatos
+                      </button>
+                      <button onClick={() => abrirInscrever(v)}
+                        className="flex items-center gap-1 text-xs text-verde font-semibold px-2 py-1.5 rounded-lg bg-verde/15 hover:bg-verde/25 transition-colors">
+                        <UserPlus size={12} /> Inscrever
                       </button>
                       {v.funcao && (
                         <button onClick={() => abrirMatch(v)}
@@ -347,10 +353,12 @@ export default function Vagas() {
                         className="text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
                         Editar
                       </button>
-                      <button onClick={() => handleDeleteVaga(v.id)}
-                        className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-laranja/10 transition-colors">
-                        Excluir
-                      </button>
+                      {role === 'admin' && (
+                        <button onClick={() => handleDeleteVaga(v.id)}
+                          className="text-xs text-laranja hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-laranja/10 transition-colors">
+                          Excluir
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -472,7 +480,7 @@ export default function Vagas() {
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-verde text-petroleum shrink-0">aberta</span>
                     </div>
                     <div className="text-xs text-gray-400 space-y-0.5">
-                      {v.unidade && <p>Unidade: {v.unidade}</p>}
+                      {v.unidades && <p>Unidade: {v.unidades.nome}</p>}
                       {v.comunidades && <p>Comunidade: {v.comunidades.nome}</p>}
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
@@ -511,8 +519,10 @@ export default function Vagas() {
               </div>
               <div>
                 <label className={labelCls}>Unidade</label>
-                <input value={formVaga.unidade ?? ''} onChange={e => setFormVaga(f => ({ ...f, unidade: e.target.value }))}
-                  className={inputCls} />
+                <select value={formVaga.unidade_id ?? ''} onChange={e => setFormVaga(f => ({ ...f, unidade_id: e.target.value }))} className={inputCls}>
+                  <option value="">— Sem unidade —</option>
+                  {unidades.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                </select>
               </div>
             </div>
             <div>
@@ -675,13 +685,22 @@ export default function Vagas() {
                           <Download size={12} /> CV
                         </a>
                       )}
-                      <select value={c.status} onChange={e => changeStatusCandidatura(c.id, e.target.value)}
-                        className="text-xs border border-cinza rounded-lg px-2 py-1 text-petroleum focus:outline-none focus:ring-1 focus:ring-oceano">
-                        <option value="inscrito">Inscrito</option>
-                        <option value="em_analise">Em análise</option>
-                        <option value="aprovado">Aprovado</option>
-                        <option value="reprovado">Reprovado</option>
-                      </select>
+                      {role === 'admin' ? (
+                        <select value={c.status} onChange={e => changeStatusCandidatura(c.id, e.target.value)}
+                          className="text-xs border border-cinza rounded-lg px-2 py-1 text-petroleum focus:outline-none focus:ring-1 focus:ring-oceano">
+                          <option value="inscrito">Inscrito</option>
+                          <option value="em_analise">Em análise</option>
+                          <option value="aprovado">Aprovado</option>
+                          <option value="reprovado">Reprovado</option>
+                        </select>
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          c.status === 'aprovado' ? 'bg-verde/30 text-petroleum' :
+                          c.status === 'reprovado' ? 'bg-red-100 text-red-500' :
+                          c.status === 'em_analise' ? 'bg-laranja/15 text-laranja' :
+                          'bg-oceano/15 text-oceano'
+                        }`}>{c.status?.replace('_', ' ')}</span>
+                      )}
                     </div>
                   </div>
                 )

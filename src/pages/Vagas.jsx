@@ -16,7 +16,7 @@ const statusBadge = {
 }
 
 const emptyVaga    = { titulo: '', unidade: '', funcao: '', status: 'aberta', comunidade_id: '' }
-const emptyTalento = { nome: '', funcao: '', contato: '', observacoes: '', curriculo_url: null }
+const emptyTalento = { nome: '', funcao: '', contato: '', observacoes: '', curriculo_url: null, associacao_id: '' }
 
 export default function Vagas() {
   const { role, liderSession } = useAuth()
@@ -52,6 +52,7 @@ export default function Vagas() {
   const [filtroComId, setFiltroComId] = useState('')
 
   const [comunidades, setComunidades] = useState([])
+  const [associacoes, setAssociacoes] = useState([])
 
   const loadVagas = async () => {
     setLoadingVagas(true)
@@ -62,7 +63,7 @@ export default function Vagas() {
 
   const loadTalentos = async () => {
     setLoadingTalentos(true)
-    let q = supabase.from('banco_talentos').select('*, comunidades(nome)').order('created_at', { ascending: false })
+    let q = supabase.from('banco_talentos').select('*, comunidades(nome), associacoes(nome, sigla)').order('created_at', { ascending: false })
     if (isLider) q = q.eq('comunidade_id', liderSession.comunidadeId)
     const { data } = await q
     setTalentos(data ?? [])
@@ -70,8 +71,12 @@ export default function Vagas() {
   }
 
   const loadComunidades = async () => {
-    const { data } = await supabase.from('comunidades').select('id, nome').order('nome')
-    setComunidades(data ?? [])
+    const [comRes, assocRes] = await Promise.all([
+      supabase.from('comunidades').select('id, nome').order('nome'),
+      supabase.from('associacoes').select('id, nome, sigla, comunidade_id').order('nome'),
+    ])
+    setComunidades(comRes.data ?? [])
+    setAssociacoes(assocRes.data ?? [])
   }
 
   useEffect(() => {
@@ -128,7 +133,11 @@ export default function Vagas() {
 
   // ── BANCO DE TALENTOS ──
   const openNovoTalento = () => { setFormTalento(emptyTalento); setCurriculo(null); setEditTalentoId(null); setModalTalento(true) }
-  const openEditTalento = (row) => { setFormTalento({ ...row }); setCurriculo(null); setEditTalentoId(row.id); setModalTalento(true) }
+  const openEditTalento = (row) => { setFormTalento({ ...row, associacao_id: row.associacao_id ?? '' }); setCurriculo(null); setEditTalentoId(row.id); setModalTalento(true) }
+
+  const assocsDaComunidade = associacoes.filter(a =>
+    a.comunidade_id === (isLider ? liderSession.comunidadeId : formTalento.comunidade_id)
+  )
 
   const handleSaveTalento = async (e) => {
     e.preventDefault()
@@ -149,6 +158,7 @@ export default function Vagas() {
     const payload = {
       nome, funcao: funcao || null, contato: contato || null, observacoes: observacoes || null,
       curriculo_url,
+      associacao_id: formTalento.associacao_id || null,
       comunidade_id: isLider ? liderSession.comunidadeId : (formTalento.comunidade_id || null),
     }
     if (editTalentoId) {
@@ -303,6 +313,7 @@ export default function Vagas() {
                   <div key={t.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
                     <div className="col-span-3">
                       <p className="text-sm font-medium text-petroleum">{t.nome}</p>
+                      {t.associacoes && <p className="text-xs text-oceano/80 truncate">{t.associacoes.sigla ?? t.associacoes.nome}</p>}
                       {t.observacoes && <p className="text-xs text-gray-400 truncate">{t.observacoes}</p>}
                     </div>
                     <span className="col-span-2">
@@ -412,6 +423,13 @@ export default function Vagas() {
                 <input value={formTalento.contato ?? ''} onChange={e => setFormTalento(f => ({ ...f, contato: e.target.value }))}
                   className={inputCls} placeholder="(75) 9 9999-9999" />
               </div>
+            </div>
+            <div>
+              <label className={labelCls}>Associação</label>
+              <select value={formTalento.associacao_id ?? ''} onChange={e => setFormTalento(f => ({ ...f, associacao_id: e.target.value }))} className={inputCls}>
+                <option value="">— Selecione a associação —</option>
+                {assocsDaComunidade.map(a => <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>)}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Observações</label>

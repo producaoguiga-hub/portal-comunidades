@@ -12,7 +12,7 @@ const statusConfig = {
   rejeitado: { label: 'Rejeitado', cls: 'bg-red-100 text-red-500',       Icon: XCircle      },
 }
 
-const empty = { titulo: '', tipo_apoio: '', descricao: '', valor_solicitado: '', data: '', comunidade_id: '' }
+const empty = { titulo: '', tipo_apoio: '', descricao: '', valor_solicitado: '', data: '', comunidade_id: '', associacao_id: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
@@ -31,6 +31,7 @@ export default function AcoesSociais() {
 
   const [data, setData] = useState([])
   const [comunidades, setComunidades] = useState([])
+  const [associacoes, setAssociacoes] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -43,17 +44,19 @@ export default function AcoesSociais() {
     setLoading(true)
     let query = supabase
       .from('acoes_sociais')
-      .select('*, comunidades(nome)')
+      .select('*, comunidades(nome), associacoes(nome, sigla)')
       .order('created_at', { ascending: false })
 
     if (isLider) query = query.eq('comunidade_id', liderSession.comunidadeId)
 
-    const [acaoRes, comRes] = await Promise.all([
+    const [acaoRes, comRes, assocRes] = await Promise.all([
       query,
       supabase.from('comunidades').select('id, nome').order('nome'),
+      supabase.from('associacoes').select('id, nome, sigla, comunidade_id').order('nome'),
     ])
     setData(acaoRes.data ?? [])
     setComunidades(comRes.data ?? [])
+    setAssociacoes(assocRes.data ?? [])
     setLoading(false)
   }
 
@@ -67,11 +70,15 @@ export default function AcoesSociais() {
   }
 
   const openEdit = (row) => {
-    setForm({ ...row, comunidade_id: row.comunidade_id ?? '', valor_solicitado: row.valor_solicitado ?? '' })
+    setForm({ ...row, comunidade_id: row.comunidade_id ?? '', valor_solicitado: row.valor_solicitado ?? '', associacao_id: row.associacao_id ?? '' })
     setOficio(null)
     setEditId(row.id)
     setModal(true)
   }
+
+  const assocsDaComSelecionada = associacoes.filter(a =>
+    a.comunidade_id === (isLider ? liderSession.comunidadeId : form.comunidade_id)
+  )
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -88,7 +95,7 @@ export default function AcoesSociais() {
       }
     }
 
-    const { titulo, tipo_apoio, descricao, valor_solicitado, data: dataVal, comunidade_id } = form
+    const { titulo, tipo_apoio, descricao, valor_solicitado, data: dataVal, comunidade_id, associacao_id } = form
     const payload = {
       titulo,
       tipo_apoio: tipo_apoio || null,
@@ -96,6 +103,7 @@ export default function AcoesSociais() {
       valor_solicitado: valor_solicitado ? Number(valor_solicitado) : null,
       data: dataVal || null,
       comunidade_id: comunidade_id || null,
+      associacao_id: associacao_id || null,
       oficio_url,
       ...(editId ? {} : { status: 'pendente' }),
     }
@@ -162,6 +170,7 @@ export default function AcoesSociais() {
               <div key={row.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center border-b last:border-0 hover:bg-verde/5 transition-colors">
                 <div className="col-span-3">
                   <p className="text-sm font-medium text-petroleum truncate">{row.titulo ?? '—'}</p>
+                  {row.associacoes && <p className="text-xs text-oceano/80 truncate">{row.associacoes.sigla ?? row.associacoes.nome}</p>}
                   {row.descricao && <p className="text-xs text-gray-400 truncate">{row.descricao}</p>}
                 </div>
                 <span className="col-span-2 text-xs text-gray-500">{row.tipo_apoio ?? '—'}</span>
@@ -251,12 +260,19 @@ export default function AcoesSociais() {
               {!isLider && (
                 <div>
                   <label className={labelCls}>Comunidade</label>
-                  <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value }))} className={inputCls}>
+                  <select value={form.comunidade_id} onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value, associacao_id: '' }))} className={inputCls}>
                     <option value="">— Selecione —</option>
                     {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                   </select>
                 </div>
               )}
+            </div>
+            <div>
+              <label className={labelCls}>Associação</label>
+              <select value={form.associacao_id ?? ''} onChange={e => setForm(f => ({ ...f, associacao_id: e.target.value }))} className={inputCls}>
+                <option value="">— Selecione a associação —</option>
+                {assocsDaComSelecionada.map(a => <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>)}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Upload do Ofício (PDF ou imagem)</label>

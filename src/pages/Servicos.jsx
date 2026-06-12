@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, MessageCircle, CheckCircle, Clock, XCircle, Wrench } from 'lucide-react'
+import { Plus, CheckCircle, Clock, XCircle, Wrench } from 'lucide-react'
+import WhatsAppIcon from '../components/WhatsAppIcon'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -209,7 +210,7 @@ export default function Servicos() {
                     {s.contato ? (
                       <a href={`https://wa.me/55${s.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 text-xs text-green-500 hover:text-green-600 font-medium transition-colors">
-                        <MessageCircle size={13} /> {s.contato}
+                        <WhatsAppIcon size={13} /> {s.contato}
                       </a>
                     ) : <span />}
 

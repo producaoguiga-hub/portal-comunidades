@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus, Users, MessageCircle, Download, FileText } from 'lucide-react'
+import { Plus, Users, Download, FileText } from 'lucide-react'
+import WhatsAppIcon from '../components/WhatsAppIcon'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -314,7 +315,7 @@ export default function Vagas() {
                           <span className="text-xs text-gray-500">{t.contato}</span>
                           <a href={`https://wa.me/55${t.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
                             className="text-green-500 hover:text-green-600 transition-colors shrink-0">
-                            <MessageCircle size={14} />
+                            <WhatsAppIcon size={14} />
                           </a>
                         </>
                       ) : <span className="text-xs text-gray-400">—</span>}
@@ -466,7 +467,7 @@ export default function Vagas() {
                     {t.contato && (
                       <a href={`https://wa.me/55${t.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 text-xs text-green-500 hover:text-green-600 font-medium">
-                        <MessageCircle size={14} /> {t.contato}
+                        <WhatsAppIcon size={14} /> {t.contato}
                       </a>
                     )}
                   </div>

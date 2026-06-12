@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus, MessageCircle } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import WhatsAppIcon from '../components/WhatsAppIcon'
 
 const empty = { nome: '', sigla: '', representante_legal: '', telefone: '', comunidade_id: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
@@ -23,7 +24,7 @@ const columns = [
           <span>{v}</span>
           <a href={url} target="_blank" rel="noreferrer" title="Abrir no WhatsApp"
             className="text-green-500 hover:text-green-600 transition-colors shrink-0">
-            <MessageCircle size={15} />
+            <WhatsAppIcon size={15} />
           </a>
         </div>
       )

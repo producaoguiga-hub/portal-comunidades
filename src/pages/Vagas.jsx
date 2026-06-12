@@ -490,6 +490,9 @@ export default function Vagas() {
                 <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="text-sm font-semibold text-petroleum">{t.nome}</p>
+                    {t.associacoes && (
+                      <p className="text-xs text-oceano font-medium">{t.associacoes.sigla ?? t.associacoes.nome}</p>
+                    )}
                     <p className="text-xs text-gray-400">{t.comunidades?.nome ?? '—'}</p>
                     {t.observacoes && <p className="text-xs text-gray-400 mt-0.5">{t.observacoes}</p>}
                   </div>

@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus, Users, Download, FileText, Building2, MapPin } from 'lucide-react'
+import { Plus, Users, Download, FileText, Building2, MapPin, UserPlus, Check } from 'lucide-react'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 
 const avatarColors = [
@@ -51,6 +51,18 @@ export default function Vagas() {
 
   const [curriculo, setCurriculo] = useState(null)
 
+  // candidaturas
+  const [modalCandidatos, setModalCandidatos] = useState(false)
+  const [vagaCandidatosObj, setVagaCandidatosObj] = useState(null)
+  const [candidatosVaga, setCandidatosVaga] = useState([])
+  const [loadingCandidatos, setLoadingCandidatos] = useState(false)
+
+  // inscrever talento em vaga (líder)
+  const [modalInscrever, setModalInscrever] = useState(false)
+  const [vagaInscreverObj, setVagaInscreverObj] = useState(null)
+  const [minhasCandidaturas, setMinhasCandidaturas] = useState({}) // { vagaId: Set<talentoId> }
+  const [inscrevendo, setInscrevendo] = useState(null)
+
   // modal "ver talentos" de uma vaga
   const [modalMatch, setModalMatch] = useState(false)
   const [vagaSelecionada, setVagaSelecionada] = useState(null)
@@ -88,11 +100,53 @@ export default function Vagas() {
     setAssociacoes(assocRes.data ?? [])
   }
 
+  const loadMinhasCandidaturas = async () => {
+    if (!isLider) return
+    const { data } = await supabase.from('candidaturas').select('vaga_id, talento_id')
+    const map = {}
+    for (const c of data ?? []) {
+      if (!map[c.vaga_id]) map[c.vaga_id] = new Set()
+      map[c.vaga_id].add(c.talento_id)
+    }
+    setMinhasCandidaturas(map)
+  }
+
   useEffect(() => {
     loadComunidades()
     loadVagas()
     loadTalentos()
+    loadMinhasCandidaturas()
   }, [])
+
+  const abrirCandidatos = async (vaga) => {
+    setVagaCandidatosObj(vaga)
+    setLoadingCandidatos(true)
+    setModalCandidatos(true)
+    const { data } = await supabase
+      .from('candidaturas')
+      .select('*, banco_talentos(nome, funcao, contato, curriculo_url, comunidades(nome), associacoes(nome, sigla))')
+      .eq('vaga_id', vaga.id)
+      .order('created_at', { ascending: false })
+    setCandidatosVaga(data ?? [])
+    setLoadingCandidatos(false)
+  }
+
+  const changeStatusCandidatura = async (id, status) => {
+    await supabase.from('candidaturas').update({ status }).eq('id', id)
+    setCandidatosVaga(prev => prev.map(c => c.id === id ? { ...c, status } : c))
+  }
+
+  const abrirInscrever = (vaga) => {
+    setVagaInscreverObj(vaga)
+    setModalInscrever(true)
+  }
+
+  const handleInscrever = async (talentoId) => {
+    setInscrevendo(talentoId)
+    await supabase.from('candidaturas').insert({ vaga_id: vagaInscreverObj.id, talento_id: talentoId })
+    await loadMinhasCandidaturas()
+    setInscrevendo(null)
+  }
 
   // ── VAGAS ──
   const openNovaVaga    = () => { setFormVaga(emptyVaga); setEditVagaId(null); setModalVaga(true) }
@@ -228,6 +282,12 @@ export default function Vagas() {
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'banco' ? 'bg-petroleum text-verde shadow-sm' : 'text-gray-400 hover:text-petroleum'}`}>
           Banco de Talentos
         </button>
+        {isLider && (
+          <button onClick={() => setTab('vagas-abertas')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'vagas-abertas' ? 'bg-petroleum text-verde shadow-sm' : 'text-gray-400 hover:text-petroleum'}`}>
+            Vagas Abertas
+          </button>
+        )}
       </div>
 
       {/* ── ABA VAGAS ── */}
@@ -261,6 +321,10 @@ export default function Vagas() {
                     </span>
                   </span>
                   <div className="col-span-2 flex items-center justify-end gap-1">
+                    <button onClick={() => abrirCandidatos(v)} title="Ver candidatos inscritos"
+                      className="flex items-center gap-1 text-xs text-verde hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-verde/20 transition-colors">
+                      <UserPlus size={12} /> Candidatos
+                    </button>
                     {v.funcao && (
                       <button onClick={() => abrirMatch(v)} title="Ver talentos compatíveis"
                         className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium px-2 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors">
@@ -368,6 +432,50 @@ export default function Vagas() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ABA VAGAS ABERTAS (líder) ── */}
+      {tab === 'vagas-abertas' && isLider && (
+        <div>
+          {loadingVagas ? (
+            <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
+          ) : vagas.filter(v => v.status === 'aberta').length === 0 ? (
+            <div className="py-14 text-center text-cinza text-sm">Nenhuma vaga aberta no momento.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {vagas.filter(v => v.status === 'aberta').map(v => {
+                const inscritos = minhasCandidaturas[v.id]
+                const qtd = inscritos?.size ?? 0
+                return (
+                  <div key={v.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-petroleum">{v.titulo}</p>
+                        {v.funcao && <span className="inline-block mt-1 px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{v.funcao}</span>}
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-verde text-petroleum shrink-0">aberta</span>
+                    </div>
+                    <div className="text-xs text-gray-400 space-y-0.5">
+                      {v.unidade && <p>Unidade: {v.unidade}</p>}
+                      {v.comunidades && <p>Comunidade: {v.comunidades.nome}</p>}
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-50 mt-auto">
+                      {qtd > 0 ? (
+                        <span className="flex items-center gap-1 text-xs text-verde font-medium">
+                          <Check size={12} /> {qtd} talento{qtd > 1 ? 's' : ''} inscrito{qtd > 1 ? 's' : ''}
+                        </span>
+                      ) : <span />}
+                      <button onClick={() => abrirInscrever(v)}
+                        className="flex items-center gap-1.5 text-xs bg-verde hover:bg-verde-light text-petroleum px-3 py-1.5 rounded-lg font-semibold transition-colors">
+                        <UserPlus size={13} /> Inscrever Talento
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -512,6 +620,98 @@ export default function Vagas() {
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal — Candidatos inscritos (gestor) */}
+      {modalCandidatos && vagaCandidatosObj && (
+        <Modal title={`Candidatos — ${vagaCandidatosObj.titulo}`} onClose={() => setModalCandidatos(false)}>
+          {loadingCandidatos ? (
+            <div className="py-8 text-center text-cinza text-sm">Carregando...</div>
+          ) : candidatosVaga.length === 0 ? (
+            <p className="text-sm text-cinza text-center py-8">Nenhum candidato inscrito ainda.</p>
+          ) : (
+            <div className="space-y-3">
+              {candidatosVaga.map(c => {
+                const t = c.banco_talentos
+                return (
+                  <div key={c.id} className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(t?.nome ?? 'A')}`}>
+                        {getInitials(t?.nome ?? 'A')}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-petroleum">{t?.nome ?? '—'}</p>
+                        {t?.funcao && <span className="inline-block px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{t.funcao}</span>}
+                        {t?.associacoes && <p className="text-xs text-oceano font-medium mt-0.5">{t.associacoes.sigla ?? t.associacoes.nome}</p>}
+                        {t?.comunidades && <p className="text-xs text-gray-400">{t.comunidades.nome}</p>}
+                        {t?.contato && (
+                          <a href={`https://wa.me/55${t.contato.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1 text-xs text-green-500 hover:text-green-600 font-medium mt-1">
+                            <WhatsAppIcon size={12} /> {t.contato}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      {t?.curriculo_url && (
+                        <a href={t.curriculo_url} target="_blank" rel="noreferrer"
+                          className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium">
+                          <Download size={12} /> CV
+                        </a>
+                      )}
+                      <select value={c.status} onChange={e => changeStatusCandidatura(c.id, e.target.value)}
+                        className="text-xs border border-cinza rounded-lg px-2 py-1 text-petroleum focus:outline-none focus:ring-1 focus:ring-oceano">
+                        <option value="inscrito">Inscrito</option>
+                        <option value="em_analise">Em análise</option>
+                        <option value="aprovado">Aprovado</option>
+                        <option value="reprovado">Reprovado</option>
+                      </select>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* Modal — Inscrever talento em vaga (líder) */}
+      {modalInscrever && vagaInscreverObj && (
+        <Modal title={`Inscrever em: ${vagaInscreverObj.titulo}`} onClose={() => setModalInscrever(false)}>
+          <div className="space-y-3">
+            {talentos.length === 0 ? (
+              <p className="text-sm text-cinza text-center py-6">Cadastre talentos no Banco de Talentos primeiro.</p>
+            ) : (
+              talentos.map(t => {
+                const jaInscrito = minhasCandidaturas[vagaInscreverObj.id]?.has(t.id)
+                return (
+                  <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(t.nome)}`}>
+                        {getInitials(t.nome)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-petroleum">{t.nome}</p>
+                        {t.funcao && <span className="px-1.5 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{t.funcao}</span>}
+                        {t.associacoes && <p className="text-xs text-oceano mt-0.5">{t.associacoes.sigla ?? t.associacoes.nome}</p>}
+                      </div>
+                    </div>
+                    {jaInscrito ? (
+                      <span className="flex items-center gap-1 text-xs text-verde font-semibold shrink-0">
+                        <Check size={13} /> Inscrito
+                      </span>
+                    ) : (
+                      <button onClick={() => handleInscrever(t.id)} disabled={inscrevendo === t.id}
+                        className="flex items-center gap-1 text-xs bg-verde hover:bg-verde-light disabled:opacity-50 text-petroleum px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0">
+                        <UserPlus size={12} /> {inscrevendo === t.id ? '...' : 'Inscrever'}
+                      </button>
+                    )}
+                  </div>
+                )
+              })
             )}
           </div>
         </Modal>

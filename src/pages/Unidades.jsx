@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus, Layers } from 'lucide-react'
+import { Plus, Layers, Eye, EyeOff } from 'lucide-react'
 
-const empty = { nome: '', descricao: '' }
+const empty = { nome: '', pin: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
 const columns = [
   { key: 'nome', label: 'Nome da Unidade' },
-  { key: 'descricao', label: 'Descrição', render: v => v ?? '—' },
+  { key: 'pin', label: 'PIN', render: v => v
+    ? <span className="font-mono font-bold text-petroleum tracking-widest">{v}</span>
+    : <span className="text-gray-300 text-xs">Sem PIN</span>
+  },
 ]
 
 export default function Unidades() {
@@ -20,6 +23,7 @@ export default function Unidades() {
   const [form, setForm] = useState(empty)
   const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [showPin, setShowPin] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -30,14 +34,13 @@ export default function Unidades() {
 
   useEffect(() => { load() }, [])
 
-  const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
-  const openEdit = (row) => { setForm({ nome: row.nome, descricao: row.descricao ?? '' }); setEditId(row.id); setModal(true) }
+  const openCreate = () => { setForm(empty); setEditId(null); setShowPin(false); setModal(true) }
+  const openEdit = (row) => { setForm({ nome: row.nome, pin: row.pin ?? '' }); setEditId(row.id); setShowPin(false); setModal(true) }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { nome, descricao } = form
-    const payload = { nome, descricao: descricao || null }
+    const payload = { nome: form.nome, pin: form.pin || null }
     if (editId) {
       await supabase.from('unidades').update(payload).eq('id', editId)
     } else {
@@ -49,7 +52,7 @@ export default function Unidades() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Excluir unidade? Funcionários e vagas vinculados perderão esta referência.')) return
+    if (!confirm('Excluir unidade? Vagas e funcionários vinculados perderão esta referência.')) return
     await supabase.from('unidades').delete().eq('id', id)
     load()
   }
@@ -61,7 +64,7 @@ export default function Unidades() {
           <div className="w-1 h-7 bg-oceano rounded-full" />
           <div>
             <h1 className="text-2xl font-bold text-petroleum">Unidades</h1>
-            <p className="text-gray-400 text-sm">Unidades internas para vincular funcionários e vagas</p>
+            <p className="text-gray-400 text-sm">Unidades internas — cadastre o PIN para habilitar o acesso</p>
           </div>
         </div>
         <button onClick={openCreate} className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
@@ -96,14 +99,22 @@ export default function Unidades() {
               />
             </div>
             <div>
-              <label className={labelCls}>Descrição</label>
-              <textarea
-                value={form.descricao}
-                onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))}
-                rows={3}
-                className={`${inputCls} resize-none`}
-                placeholder="Detalhe a função desta unidade..."
-              />
+              <label className={labelCls}>PIN de Acesso</label>
+              <div className="relative">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  value={form.pin}
+                  onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
+                  maxLength={10}
+                  className={`${inputCls} pr-10`}
+                  placeholder="Ex: 1234"
+                />
+                <button type="button" onClick={() => setShowPin(!showPin)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-cinza hover:text-petroleum transition-colors">
+                  {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">O PIN permite que a unidade faça login no portal com nível de gestor.</p>
             </div>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModal(false)}

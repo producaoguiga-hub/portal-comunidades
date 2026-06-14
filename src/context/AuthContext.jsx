@@ -7,6 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [role, setRole] = useState(null)
   const [liderSession, setLiderSession] = useState(null)
+  const [unidadeSession, setUnidadeSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchAndEnsurePerfil = async (authUser) => {
@@ -23,9 +24,16 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const stored = localStorage.getItem('lider_session')
-    if (stored) {
-      try { setLiderSession(JSON.parse(stored)) } catch {}
+    const storedLider = localStorage.getItem('lider_session')
+    if (storedLider) {
+      try { setLiderSession(JSON.parse(storedLider)) } catch {}
+      setLoading(false)
+      return
+    }
+
+    const storedUnidade = localStorage.getItem('unidade_session')
+    if (storedUnidade) {
+      try { setUnidadeSession(JSON.parse(storedUnidade)) } catch {}
       setLoading(false)
       return
     }
@@ -74,16 +82,35 @@ export function AuthProvider({ children }) {
     return { error: null }
   }
 
+  const signInWithPinUnidade = async (unidadeId, pin) => {
+    const { data, error } = await supabase
+      .from('unidades')
+      .select('id, nome, pin')
+      .eq('id', unidadeId)
+      .single()
+
+    if (error || !data) return { error: { message: 'Unidade não encontrada' } }
+    if (!data.pin) return { error: { message: 'Esta unidade ainda não tem PIN configurado' } }
+    if (data.pin !== pin) return { error: { message: 'PIN incorreto' } }
+
+    const session = { unidadeId: data.id, unidadeNome: data.nome }
+    localStorage.setItem('unidade_session', JSON.stringify(session))
+    setUnidadeSession(session)
+    return { error: null }
+  }
+
   const signOut = async () => {
     localStorage.removeItem('lider_session')
+    localStorage.removeItem('unidade_session')
     setLiderSession(null)
+    setUnidadeSession(null)
     setUser(null)
     setRole(null)
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ user, role, liderSession, loading, signIn, signInWithPin, signOut }}>
+    <AuthContext.Provider value={{ user, role, liderSession, unidadeSession, loading, signIn, signInWithPin, signInWithPinUnidade, signOut }}>
       {children}
     </AuthContext.Provider>
   )

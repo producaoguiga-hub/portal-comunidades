@@ -43,6 +43,13 @@ export default function Usuarios() {
     load()
   }
 
+  const handleDelete = async (perfil) => {
+    if (perfil.user_id === currentUser?.id) return
+    if (!confirm(`Remover ${perfil.email} do portal?`)) return
+    await supabase.from('perfis').delete().eq('id', perfil.id)
+    load()
+  }
+
   const handleConvidar = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -108,17 +115,25 @@ export default function Usuarios() {
                   <Shield size={11} />
                   {roleLabel[p.role] ?? p.role}
                 </span>
-                <div className="text-right">
+                <div className="flex items-center justify-end gap-2">
                   {p.user_id === currentUser?.id ? (
                     <span className="text-xs text-cinza italic">Você</span>
                   ) : (
-                    <button
-                      onClick={() => toggleRole(p)}
-                      disabled={updating === p.id}
-                      className="text-xs text-oceano hover:text-petroleum font-medium px-2.5 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors disabled:opacity-50"
-                    >
-                      {updating === p.id ? 'Alterando...' : `Tornar ${p.role === 'admin' ? 'Gestor' : 'Admin'}`}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => toggleRole(p)}
+                        disabled={updating === p.id}
+                        className="text-xs text-oceano hover:text-petroleum font-medium px-2.5 py-1.5 rounded-lg hover:bg-oceano/10 transition-colors disabled:opacity-50"
+                      >
+                        {updating === p.id ? 'Alterando...' : `Tornar ${p.role === 'admin' ? 'Gestor' : 'Admin'}`}
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p)}
+                        className="text-xs text-laranja hover:text-petroleum font-medium px-2.5 py-1.5 rounded-lg hover:bg-laranja/10 transition-colors"
+                      >
+                        Excluir
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

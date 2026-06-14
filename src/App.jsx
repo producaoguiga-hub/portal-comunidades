@@ -17,10 +17,10 @@ import Unidades from './pages/Unidades'
 const defaultPage = { admin: 'dashboard', gestor: 'dashboard', lider: 'minha-comunidade' }
 
 function AppContent() {
-  const { user, role, liderSession, loading } = useAuth()
+  const { user, role, liderSession, unidadeSession, loading } = useAuth()
   const [page, setPage] = useState(null)
 
-  const currentRole = liderSession ? 'lider' : role
+  const currentRole = liderSession ? 'lider' : unidadeSession ? 'gestor' : role
 
   useEffect(() => {
     if (currentRole) setPage(defaultPage[currentRole] ?? 'dashboard')
@@ -34,7 +34,7 @@ function AppContent() {
     )
   }
 
-  if (!user && !liderSession) return <Login />
+  if (!user && !liderSession && !unidadeSession) return <Login />
 
   const pages = {
     dashboard: <Dashboard />,

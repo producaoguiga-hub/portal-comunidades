@@ -37,12 +37,12 @@ const navLider = [
 ]
 
 export default function Layout({ currentPage, onNavigate, children }) {
-  const { user, role, liderSession, signOut } = useAuth()
+  const { user, role, liderSession, unidadeSession, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const navItems = liderSession ? navLider : role === 'admin' ? navAdmin : navGestor
-  const displayName = liderSession ? liderSession.comunidadeNome : user?.email
-  const displayRole = liderSession ? 'Líder Comunitário' : role === 'admin' ? 'Administrador' : 'Gestor'
+  const displayName = liderSession ? liderSession.comunidadeNome : unidadeSession ? unidadeSession.unidadeNome : user?.email
+  const displayRole = liderSession ? 'Líder Comunitário' : unidadeSession ? 'Unidade' : role === 'admin' ? 'Administrador' : 'Gestor'
 
   return (
     <div className="flex h-screen overflow-hidden"

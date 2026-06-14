@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, Download, CheckCircle, XCircle, Clock, Building2, MapPin, CalendarDays, Banknote } from 'lucide-react'
+import { Plus, Download, CheckCircle, XCircle, Clock, Building2, MapPin, CalendarDays, Banknote, Layers } from 'lucide-react'
 
 const TIPOS = ['Financeiro', 'Material', 'Infraestrutura', 'Saúde', 'Educação', 'Evento', 'Outro']
 
@@ -26,12 +26,13 @@ function StatusBadge({ status }) {
 }
 
 export default function AcoesSociais() {
-  const { role, liderSession } = useAuth()
+  const { role, liderSession, unidadeSession } = useAuth()
   const isLider = !!liderSession
 
   const [data, setData] = useState([])
   const [comunidades, setComunidades] = useState([])
   const [associacoes, setAssociacoes] = useState([])
+  const [unidades, setUnidades] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(empty)
@@ -44,19 +45,21 @@ export default function AcoesSociais() {
     setLoading(true)
     let query = supabase
       .from('acoes_sociais')
-      .select('*, comunidades(nome), associacoes(nome, sigla)')
+      .select('*, comunidades(nome), associacoes(nome, sigla), unidades(nome)')
       .order('created_at', { ascending: false })
 
     if (isLider) query = query.eq('comunidade_id', liderSession.comunidadeId)
 
-    const [acaoRes, comRes, assocRes] = await Promise.all([
+    const [acaoRes, comRes, assocRes, unidRes] = await Promise.all([
       query,
       supabase.from('comunidades').select('id, nome').order('nome'),
       supabase.from('associacoes').select('id, nome, sigla, comunidade_id').order('nome'),
+      supabase.from('unidades').select('id, nome').order('nome'),
     ])
     setData(acaoRes.data ?? [])
     setComunidades(comRes.data ?? [])
     setAssociacoes(assocRes.data ?? [])
+    setUnidades(unidRes.data ?? [])
     setLoading(false)
   }
 
@@ -127,7 +130,11 @@ export default function AcoesSociais() {
 
   const changeStatus = async (id, status) => {
     setUpdatingStatus(id)
-    await supabase.from('acoes_sociais').update({ status }).eq('id', id)
+    const update = { status }
+    if ((status === 'aprovado' || status === 'rejeitado') && unidadeSession) {
+      update.unidade_aprovadora_id = unidadeSession.unidadeId
+    }
+    await supabase.from('acoes_sociais').update(update).eq('id', id)
     setUpdatingStatus(null)
     load()
   }
@@ -177,7 +184,7 @@ export default function AcoesSociais() {
                 )}
               </div>
 
-              {/* Associação + comunidade */}
+              {/* Associação + comunidade + unidade aprovadora */}
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-xs font-medium">
                   <Building2 size={11} className={`shrink-0 ${row.associacoes ? 'text-oceano' : 'text-gray-300'}`} />
@@ -189,6 +196,12 @@ export default function AcoesSociais() {
                   <div className="flex items-center gap-1.5 text-xs text-gray-400">
                     <MapPin size={11} className="shrink-0" />
                     {row.comunidades.nome}
+                  </div>
+                )}
+                {row.unidades && (
+                  <div className="flex items-center gap-1.5 text-xs text-petroleum/60">
+                    <Layers size={11} className="shrink-0" />
+                    Aprovado por: <span className="font-medium text-petroleum">{row.unidades.nome}</span>
                   </div>
                 )}
               </div>

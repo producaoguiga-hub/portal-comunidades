@@ -158,17 +158,10 @@ export default function Funcionarios() {
           </div>
           <div className="flex flex-wrap gap-2">
             {ranking.map(([unit, count], i) => (
-              <div key={unit} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm ${
-                i === 0 ? 'bg-verde/20 border-verde/30 text-petroleum' :
-                i === 1 ? 'bg-oceano/10 border-oceano/20 text-petroleum' :
-                i === 2 ? 'bg-laranja/10 border-laranja/20 text-petroleum' :
-                'bg-gray-50 border-gray-200 text-gray-500'
-              }`}>
-                <span className="font-black text-xs">{i + 1}º</span>
-                <span className="font-bold tracking-wide">{unit}</span>
-                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
-                  i === 0 ? 'bg-verde/30 text-petroleum' : 'bg-gray-200 text-gray-500'
-                }`}>{count}</span>
+              <div key={unit} className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-sm">
+                <span className="text-xs text-gray-400 font-semibold w-4">{i + 1}º</span>
+                <span className="font-bold text-petroleum tracking-wide">{unit}</span>
+                <span className="text-xs font-semibold text-gray-500">{count}</span>
               </div>
             ))}
           </div>

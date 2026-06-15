@@ -86,7 +86,8 @@ export default function Servicos() {
     let foto_url = form.foto_url ?? null
     if (foto) {
       const ext = foto.name.split('.').pop()
-      const path = `${Date.now()}_${form.tipo.replace(/\s+/g, '_')}.${ext}`
+      const safeTipo = form.tipo.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '_')
+      const path = `${Date.now()}_${safeTipo}.${ext}`
       const { error: upErr } = await supabase.storage.from('fotos-servicos').upload(path, foto, { upsert: true })
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('fotos-servicos').getPublicUrl(path)

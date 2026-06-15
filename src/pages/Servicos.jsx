@@ -28,8 +28,9 @@ const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true, a
 const emptySolicitacao = { descricao: '', solicitante: '', unidade: '' }
 
 export default function Servicos() {
-  const { role, liderSession } = useAuth()
+  const { role, liderSession, unidadeSession } = useAuth()
   const isLider = !!liderSession
+  const isUnidade = !!unidadeSession
 
   const [servicos, setServicos] = useState([])
   const [solicitacoes, setSolicitacoes] = useState([])
@@ -120,7 +121,11 @@ export default function Servicos() {
     load()
   }
 
-  const openSolicitar = (servico) => { setServicoSelecionado(servico); setFormSol(emptySolicitacao); setModalSolicitar(true) }
+  const openSolicitar = (servico) => {
+    setServicoSelecionado(servico)
+    setFormSol({ descricao: '', solicitante: '', unidade: unidadeSession?.unidadeNome ?? '' })
+    setModalSolicitar(true)
+  }
 
   const handleSolicitar = async (e) => {
     e.preventDefault()
@@ -400,8 +405,12 @@ export default function Servicos() {
               </div>
               <div>
                 <label className={labelCls}>Unidade</label>
-                <input value={formSol.unidade} onChange={e => setFormSol(f => ({ ...f, unidade: e.target.value }))}
-                  className={inputCls} placeholder="Ex: Equipe de Pintura" />
+                {isUnidade ? (
+                  <div className={`${inputCls} bg-gray-50 text-petroleum/60`}>{unidadeSession.unidadeNome}</div>
+                ) : (
+                  <input value={formSol.unidade} onChange={e => setFormSol(f => ({ ...f, unidade: e.target.value }))}
+                    className={inputCls} placeholder="Ex: Equipe de Pintura" />
+                )}
               </div>
             </div>
             <div>

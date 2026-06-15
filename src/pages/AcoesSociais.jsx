@@ -164,7 +164,7 @@ export default function AcoesSociais() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {data.map(row => (
-            <div key={row.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow relative overflow-hidden">
+            <div key={row.id} className="bg-white rounded-xl border border-laranja/20 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow relative overflow-hidden">
 
               {/* Topo: status + data */}
               <div className="flex items-center justify-between">

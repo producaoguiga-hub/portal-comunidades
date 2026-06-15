@@ -199,7 +199,7 @@ export default function AcoesSociais() {
                   </div>
                 )}
                 {row.unidades && (
-                  <div className={`absolute right-4 top-1/2 -translate-y-1/2 rotate-[-18deg] border-[3px] rounded-md px-3 py-1.5 pointer-events-none select-none opacity-20 ${
+                  <div className={`absolute right-4 top-[38%] -translate-y-1/2 rotate-[-18deg] border-[3px] rounded-md px-3 py-1.5 pointer-events-none select-none opacity-55 ${
                     row.status === 'aprovado' ? 'border-verde' : 'border-red-500'
                   }`}>
                     <p className={`font-black text-base tracking-[0.2em] uppercase font-mono leading-none ${

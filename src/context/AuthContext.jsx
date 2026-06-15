@@ -24,29 +24,6 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const storedLider = localStorage.getItem('lider_session')
-    if (storedLider) {
-      try { setLiderSession(JSON.parse(storedLider)) } catch {}
-      setLoading(false)
-      return
-    }
-
-    const storedUnidade = localStorage.getItem('unidade_session')
-    if (storedUnidade) {
-      try { setUnidadeSession(JSON.parse(storedUnidade)) } catch {}
-      setLoading(false)
-      return
-    }
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const r = await fetchAndEnsurePerfil(session.user)
-        setUser(session.user)
-        setRole(r)
-      }
-      setLoading(false)
-    })
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const r = await fetchAndEnsurePerfil(session.user)
@@ -56,6 +33,29 @@ export function AuthProvider({ children }) {
         setUser(null)
         setRole(null)
       }
+    })
+
+    const storedLider = localStorage.getItem('lider_session')
+    if (storedLider) {
+      try { setLiderSession(JSON.parse(storedLider)) } catch {}
+      setLoading(false)
+      return () => subscription.unsubscribe()
+    }
+
+    const storedUnidade = localStorage.getItem('unidade_session')
+    if (storedUnidade) {
+      try { setUnidadeSession(JSON.parse(storedUnidade)) } catch {}
+      setLoading(false)
+      return () => subscription.unsubscribe()
+    }
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const r = await fetchAndEnsurePerfil(session.user)
+        setUser(session.user)
+        setRole(r)
+      }
+      setLoading(false)
     })
 
     return () => subscription.unsubscribe()

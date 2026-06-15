@@ -130,9 +130,10 @@ export default function AcoesSociais() {
 
   const changeStatus = async (id, status) => {
     setUpdatingStatus(id)
-    const update = { status }
-    if ((status === 'aprovado' || status === 'rejeitado') && unidadeSession) {
-      update.unidade_aprovadora_id = unidadeSession.unidadeId
+    const update = { status, aprovado_por_admin: false, unidade_aprovadora_id: null }
+    if (status === 'aprovado' || status === 'rejeitado') {
+      if (unidadeSession) update.unidade_aprovadora_id = unidadeSession.unidadeId
+      else if (role === 'admin') update.aprovado_por_admin = true
     }
     await supabase.from('acoes_sociais').update(update).eq('id', id)
     setUpdatingStatus(null)
@@ -198,13 +199,13 @@ export default function AcoesSociais() {
                     {row.comunidades.nome}
                   </div>
                 )}
-                {row.unidades && (
+                {(row.unidades || row.aprovado_por_admin) && (
                   <div className={`absolute right-4 top-[38%] -translate-y-1/2 rotate-[-18deg] border-[3px] rounded-md px-3 py-1.5 pointer-events-none select-none opacity-55 ${
                     row.status === 'aprovado' ? 'border-verde' : 'border-red-500'
                   }`}>
                     <p className={`font-black text-base tracking-[0.2em] uppercase font-mono leading-none ${
                       row.status === 'aprovado' ? 'text-verde' : 'text-red-500'
-                    }`}>{row.unidades.nome}</p>
+                    }`}>{row.unidades ? row.unidades.nome : 'COMISSÃO'}</p>
                     <p className={`font-black text-[9px] tracking-[0.3em] uppercase text-center mt-0.5 ${
                       row.status === 'aprovado' ? 'text-verde' : 'text-red-500'
                     }`}>{row.status === 'aprovado' ? 'APROVADO' : 'REJEITADO'}</p>

@@ -36,6 +36,7 @@ export default function Funcionarios() {
 
   const emptyForm = () => ({
     funcionario_nome: '',
+    funcao: '',
     associacao: '',
     unidade: isUnidade ? unidadeSession.unidadeNome : '',
     comunidade_id: '',
@@ -98,6 +99,7 @@ export default function Funcionarios() {
   const openEdit = row => {
     setForm({
       funcionario_nome: row.funcionario_nome,
+      funcao: row.funcao ?? '',
       associacao: row.associacao ?? '',
       unidade: row.unidade ?? (isUnidade ? unidadeSession.unidadeNome : ''),
       comunidade_id: row.comunidade_id ?? '',
@@ -111,6 +113,7 @@ export default function Funcionarios() {
     setSaving(true)
     const payload = {
       funcionario_nome: form.funcionario_nome,
+      funcao: form.funcao || null,
       associacao: form.associacao || null,
       unidade: form.unidade || null,
       comunidade_id: form.comunidade_id || null,
@@ -223,6 +226,9 @@ export default function Funcionarios() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-petroleum text-sm leading-tight">{f.funcionario_nome}</p>
+                      {f.funcao && (
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{f.funcao}</span>
+                      )}
                       {f.associacao && (
                         <div className="flex items-center gap-1 mt-1">
                           <Building2 size={10} className="text-oceano shrink-0" />
@@ -261,6 +267,11 @@ export default function Funcionarios() {
               <label className={labelCls}>Nome *</label>
               <input value={form.funcionario_nome ?? ''} onChange={e => setForm(f => ({ ...f, funcionario_nome: e.target.value }))}
                 required className={inputCls} placeholder="Nome completo" />
+            </div>
+            <div>
+              <label className={labelCls}>Função / Cargo</label>
+              <input value={form.funcao ?? ''} onChange={e => setForm(f => ({ ...f, funcao: e.target.value }))}
+                className={inputCls} placeholder="Ex: Motorista, Ajudante, Soldador..." />
             </div>
             <div>
               <label className={labelCls}>Unidade</label>

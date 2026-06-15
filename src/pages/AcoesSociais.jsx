@@ -200,8 +200,8 @@ export default function AcoesSociais() {
                   </div>
                 )}
                 {(row.unidades || row.aprovado_por_admin) && (
-                  <div className={`absolute right-4 top-[38%] -translate-y-1/2 rotate-[-18deg] border-[3px] rounded-md px-3 py-1.5 pointer-events-none select-none opacity-75 ${
-                    row.status === 'aprovado' ? 'border-verde' : 'border-red-500'
+                  <div className={`absolute right-4 top-[38%] -translate-y-1/2 rotate-[-18deg] border-[3px] rounded-md px-3 py-1.5 pointer-events-none select-none opacity-85 ${
+                    row.status === 'aprovado' ? 'border-verde bg-verde/10' : 'border-red-500 bg-red-500/10'
                   }`}>
                     <p className={`font-black text-base tracking-[0.2em] uppercase font-mono leading-none ${
                       row.status === 'aprovado' ? 'text-verde' : 'text-red-500'

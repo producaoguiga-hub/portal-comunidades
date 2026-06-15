@@ -8,7 +8,7 @@ import {
 const navAdmin = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'associacoes', label: 'Associações', icon: Building2 },
-  { id: 'vagas', label: 'Vagas', icon: Briefcase },
+  { id: 'vagas', label: 'Vagas e Banco', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
   { id: 'unidades', label: 'Unidades', icon: Layers },
@@ -21,7 +21,7 @@ const navAdmin = [
 const navGestor = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'associacoes', label: 'Associações', icon: Building2 },
-  { id: 'vagas', label: 'Vagas', icon: Briefcase },
+  { id: 'vagas', label: 'Vagas e Banco', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
   { id: 'unidades', label: 'Unidades', icon: Layers },
@@ -31,7 +31,7 @@ const navGestor = [
 
 const navLider = [
   { id: 'minha-comunidade', label: 'Minha Comunidade', icon: Home },
-  { id: 'vagas', label: 'Banco de Talentos', icon: Briefcase },
+  { id: 'vagas', label: 'Vagas e Banco', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
 ]

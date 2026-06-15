@@ -256,7 +256,7 @@ export default function Vagas() {
         <div className="flex items-center gap-3">
           <div className="w-1 h-7 bg-verde rounded-full" />
           <div>
-            <h1 className="text-2xl font-bold text-petroleum">Vagas</h1>
+            <h1 className="text-2xl font-bold text-petroleum">Vagas e Banco</h1>
             <p className="text-gray-400 text-sm">Gestão de vagas e banco de talentos</p>
           </div>
         </div>

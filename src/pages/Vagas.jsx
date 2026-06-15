@@ -338,7 +338,7 @@ export default function Vagas() {
                         <UserPlus size={12} /> Candidatos
                       </button>
                       <button onClick={() => abrirInscrever(v)}
-                        className="flex items-center gap-1 text-xs text-verde font-semibold px-2 py-1.5 rounded-lg bg-verde/15 hover:bg-verde/25 transition-colors">
+                        className="flex items-center gap-1 text-xs text-petroleum font-semibold px-2 py-1.5 rounded-lg bg-verde hover:bg-verde-light transition-colors">
                         <UserPlus size={12} /> Inscrever
                       </button>
                       {v.funcao && (

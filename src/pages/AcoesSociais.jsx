@@ -163,7 +163,7 @@ export default function AcoesSociais() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {data.map(row => (
-            <div key={row.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+            <div key={row.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-col gap-3 hover:shadow-md transition-shadow relative overflow-hidden">
 
               {/* Topo: status + data */}
               <div className="flex items-center justify-between">
@@ -199,9 +199,15 @@ export default function AcoesSociais() {
                   </div>
                 )}
                 {row.unidades && (
-                  <div className="flex items-center gap-1.5 text-xs text-petroleum/60">
-                    <Layers size={11} className="shrink-0" />
-                    Aprovado por: <span className="font-medium text-petroleum">{row.unidades.nome}</span>
+                  <div className={`absolute right-4 top-1/2 -translate-y-1/2 rotate-[-18deg] border-[3px] rounded-md px-3 py-1.5 pointer-events-none select-none opacity-20 ${
+                    row.status === 'aprovado' ? 'border-verde' : 'border-red-500'
+                  }`}>
+                    <p className={`font-black text-base tracking-[0.2em] uppercase font-mono leading-none ${
+                      row.status === 'aprovado' ? 'text-verde' : 'text-red-500'
+                    }`}>{row.unidades.nome}</p>
+                    <p className={`font-black text-[9px] tracking-[0.3em] uppercase text-center mt-0.5 ${
+                      row.status === 'aprovado' ? 'text-verde' : 'text-red-500'
+                    }`}>{row.status === 'aprovado' ? 'APROVADO' : 'REJEITADO'}</p>
                   </div>
                 )}
               </div>

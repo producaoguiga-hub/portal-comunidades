@@ -31,7 +31,7 @@ export default function Vagas() {
   const { role, liderSession } = useAuth()
   const isLider = !!liderSession
 
-  const [tab, setTab] = useState(isLider ? 'banco' : 'vagas')
+  const [tab, setTab] = useState('banco')
 
   // vagas
   const [vagas, setVagas] = useState([])
@@ -272,24 +272,12 @@ export default function Vagas() {
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — apenas Banco de Talentos visível por enquanto */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5 w-fit">
-        {!isLider && (
-          <button onClick={() => setTab('vagas')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'vagas' ? 'bg-petroleum text-verde shadow-sm' : 'text-gray-400 hover:text-petroleum'}`}>
-            Vagas
-          </button>
-        )}
         <button onClick={() => setTab('banco')}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'banco' ? 'bg-petroleum text-verde shadow-sm' : 'text-gray-400 hover:text-petroleum'}`}>
           Banco de Talentos
         </button>
-        {isLider && (
-          <button onClick={() => setTab('vagas-abertas')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'vagas-abertas' ? 'bg-petroleum text-verde shadow-sm' : 'text-gray-400 hover:text-petroleum'}`}>
-            Vagas Abertas
-          </button>
-        )}
       </div>
 
       {/* ── ABA VAGAS ── */}

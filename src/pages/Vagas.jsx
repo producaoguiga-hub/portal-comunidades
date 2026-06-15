@@ -319,13 +319,13 @@ export default function Vagas() {
                   {/* Info */}
                   <div className="space-y-1">
                     {v.unidades && (
-                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                        <Building2 size={11} className="shrink-0" /> {v.unidades.nome}
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-petroleum/80">
+                        <Building2 size={11} className="shrink-0 text-oceano" /> {v.unidades.nome}
                       </div>
                     )}
                     {v.comunidades && (
-                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                        <MapPin size={11} className="shrink-0" /> {v.comunidades.nome}
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-petroleum/60">
+                        <MapPin size={11} className="shrink-0 text-laranja/70" /> {v.comunidades.nome}
                       </div>
                     )}
                   </div>

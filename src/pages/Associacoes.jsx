@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Table from '../components/Table'
 import Modal from '../components/Modal'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 
 const empty = { nome: '', sigla: '', representante_legal: '', telefone: '', comunidade_id: '' }
@@ -12,7 +12,11 @@ const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracki
 const columns = [
   { key: 'nome', label: 'Associação' },
   { key: 'sigla', label: 'Sigla', render: v => v ? <span className="px-2 py-0.5 bg-petroleum text-verde rounded font-mono text-xs font-semibold">{v}</span> : '—' },
-  { key: 'representante_legal', label: 'Representante Legal' },
+  { key: 'representante_legal', label: 'Representante(s) Legal', render: v => v ? (
+    <div className="flex flex-col gap-0.5">
+      {v.split(' | ').map((r, i) => <span key={i}>{r}</span>)}
+    </div>
+  ) : '—' },
   {
     key: 'telefone', label: 'Telefone / WhatsApp',
     render: (v) => {
@@ -42,6 +46,7 @@ export default function Associacoes() {
   const [editId, setEditId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [representantes, setRepresentantes] = useState([''])
 
   const load = async () => {
     setLoading(true)
@@ -56,14 +61,20 @@ export default function Associacoes() {
 
   useEffect(() => { load() }, [])
 
-  const openCreate = () => { setForm(empty); setEditId(null); setModal(true) }
-  const openEdit = (row) => { setForm({ ...row, comunidade_id: row.comunidade_id ?? '' }); setEditId(row.id); setModal(true) }
+  const openCreate = () => { setForm(empty); setRepresentantes(['']); setEditId(null); setModal(true) }
+  const openEdit = (row) => {
+    setForm({ ...row, comunidade_id: row.comunidade_id ?? '' })
+    setRepresentantes(row.representante_legal ? row.representante_legal.split(' | ') : [''])
+    setEditId(row.id)
+    setModal(true)
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
-    const { nome, sigla, representante_legal, telefone, comunidade_id } = form
-    const payload = { nome, sigla: sigla || null, representante_legal: representante_legal || null, telefone: telefone || null, comunidade_id: comunidade_id || null }
+    const { nome, sigla, telefone, comunidade_id } = form
+    const repFinal = representantes.filter(r => r.trim()).join(' | ') || null
+    const payload = { nome, sigla: sigla || null, representante_legal: repFinal, telefone: telefone || null, comunidade_id: comunidade_id || null }
     if (editId) {
       await supabase.from('associacoes').update(payload).eq('id', editId)
     } else {
@@ -133,9 +144,25 @@ export default function Associacoes() {
                 className={inputCls} placeholder="Ex: ATDEA" maxLength={20} />
             </div>
             <div>
-              <label className={labelCls}>Representante Legal</label>
-              <input value={form.representante_legal} onChange={e => setForm(f => ({ ...f, representante_legal: e.target.value }))}
-                className={inputCls} placeholder="Nome do representante" />
+              <label className={labelCls}>Representante(s) Legal</label>
+              <div className="space-y-2">
+                {representantes.map((r, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <input value={r} onChange={e => setRepresentantes(prev => prev.map((v, j) => j === i ? e.target.value : v))}
+                      className={inputCls} placeholder="Nome do representante" />
+                    {representantes.length > 1 && (
+                      <button type="button" onClick={() => setRepresentantes(prev => prev.filter((_, j) => j !== i))}
+                        className="text-laranja hover:text-petroleum shrink-0 transition-colors">
+                        <X size={15} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" onClick={() => setRepresentantes(prev => [...prev, ''])}
+                  className="flex items-center gap-1 text-xs text-oceano hover:text-petroleum font-medium mt-1 transition-colors">
+                  <Plus size={13} /> Adicionar representante
+                </button>
+              </div>
             </div>
             <div>
               <label className={labelCls}>Telefone / WhatsApp</label>

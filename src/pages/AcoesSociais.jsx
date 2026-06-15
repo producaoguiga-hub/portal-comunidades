@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, Download, CheckCircle, XCircle, Clock, Building2, MapPin, CalendarDays, Banknote, Layers } from 'lucide-react'
+import { Plus, Download, CheckCircle, XCircle, Clock, RotateCcw, Building2, MapPin, CalendarDays, Banknote, Layers } from 'lucide-react'
 
 const TIPOS = ['Financeiro', 'Material', 'Infraestrutura', 'Saúde', 'Educação', 'Evento', 'Outro']
 
@@ -241,6 +241,12 @@ export default function AcoesSociais() {
                     <button onClick={() => changeStatus(row.id, 'rejeitado')} disabled={updatingStatus === row.id}
                       title="Rejeitar" className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40">
                       <XCircle size={15} />
+                    </button>
+                  )}
+                  {role === 'admin' && row.status !== 'pendente' && (
+                    <button onClick={() => changeStatus(row.id, 'pendente')} disabled={updatingStatus === row.id}
+                      title="Reverter para Pendente" className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40">
+                      <RotateCcw size={15} />
                     </button>
                   )}
                   {((isLider && row.status === 'pendente') || role === 'admin') && (

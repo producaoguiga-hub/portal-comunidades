@@ -9,7 +9,11 @@ const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-p
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
 const columns = [
-  { key: 'nome', label: 'Nome da Unidade' },
+  { key: 'nome', label: 'Nome da Unidade', render: v => (
+    <span className="inline-flex items-center px-3 py-1 rounded-lg bg-verde/20 text-petroleum font-bold text-sm tracking-wide">
+      {v}
+    </span>
+  )},
   { key: 'pin', label: 'PIN', render: v => v
     ? <span className="font-mono font-bold text-petroleum tracking-widest">{v}</span>
     : <span className="text-gray-300 text-xs">Sem PIN</span>

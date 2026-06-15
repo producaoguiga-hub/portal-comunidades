@@ -3,6 +3,32 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Eye, EyeOff } from 'lucide-react'
 
+const inputCls = 'w-full border border-cinza rounded-lg px-4 py-2.5 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
+const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1.5'
+
+function PinField({ value, onChange, showPin, onTogglePin }) {
+  return (
+    <div>
+      <label className={labelCls}>PIN</label>
+      <div className="relative">
+        <input
+          type={showPin ? 'text' : 'password'}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          required
+          maxLength={10}
+          className={`${inputCls} pr-10`}
+          placeholder="••••"
+        />
+        <button type="button" onClick={onTogglePin}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-cinza hover:text-petroleum transition-colors">
+          {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Login() {
   const { signIn, signInWithPin, signInWithPinUnidade } = useAuth()
   const [mode, setMode] = useState('gestor')
@@ -64,29 +90,6 @@ export default function Login() {
 
   const switchMode = (m) => { setMode(m); setError(''); setPin('') }
 
-  const inputCls = 'w-full border border-cinza rounded-lg px-4 py-2.5 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
-  const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1.5'
-
-  const PinField = ({ value, onChange }) => (
-    <div>
-      <label className={labelCls}>PIN</label>
-      <div className="relative">
-        <input
-          type={showPin ? 'text' : 'password'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          required
-          maxLength={10}
-          className={`${inputCls} pr-10`}
-          placeholder="••••"
-        />
-        <button type="button" onClick={() => setShowPin(!showPin)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-cinza hover:text-petroleum transition-colors">
-          {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
-        </button>
-      </div>
-    </div>
-  )
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
@@ -152,7 +155,7 @@ export default function Login() {
                     </select>
                   )}
                 </div>
-                <PinField value={pin} onChange={setPin} />
+                <PinField value={pin} onChange={setPin} showPin={showPin} onTogglePin={() => setShowPin(v => !v)} />
                 {error && <div className="bg-laranja/10 border border-laranja/30 text-laranja rounded-lg px-4 py-3 text-sm">{error}</div>}
                 <button type="submit" disabled={loading || !unidadeId}
                   className="w-full bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum font-semibold py-2.5 rounded-lg transition-colors text-sm shadow-sm">
@@ -174,7 +177,7 @@ export default function Login() {
                     </select>
                   )}
                 </div>
-                <PinField value={pin} onChange={setPin} />
+                <PinField value={pin} onChange={setPin} showPin={showPin} onTogglePin={() => setShowPin(v => !v)} />
                 {error && <div className="bg-laranja/10 border border-laranja/30 text-laranja rounded-lg px-4 py-3 text-sm">{error}</div>}
                 <button type="submit" disabled={loading || !comunidadeId}
                   className="w-full bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum font-semibold py-2.5 rounded-lg transition-colors text-sm shadow-sm">

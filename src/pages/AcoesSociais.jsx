@@ -28,6 +28,7 @@ function StatusBadge({ status }) {
 export default function AcoesSociais() {
   const { role, liderSession, unidadeSession } = useAuth()
   const isLider = !!liderSession
+  const LIMITE_PENDENTES = 2
 
   const [data, setData] = useState([])
   const [comunidades, setComunidades] = useState([])
@@ -152,9 +153,23 @@ export default function AcoesSociais() {
             </p>
           </div>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
-          <Plus size={15} /> Nova Solicitação
-        </button>
+        {(() => {
+          const pendentes = isLider ? data.filter(r => r.status === 'pendente').length : 0
+          const bloqueado = isLider && pendentes >= LIMITE_PENDENTES
+          return (
+            <div className="flex flex-col items-end gap-1">
+              <button onClick={openCreate} disabled={bloqueado}
+                className="flex items-center gap-2 bg-verde hover:bg-verde-light disabled:opacity-40 disabled:cursor-not-allowed text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
+                <Plus size={15} /> Nova Solicitação
+              </button>
+              {bloqueado && (
+                <p className="text-xs text-laranja font-medium">
+                  Limite de {LIMITE_PENDENTES} solicitações pendentes atingido. Aguarde uma resposta.
+                </p>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {loading ? (

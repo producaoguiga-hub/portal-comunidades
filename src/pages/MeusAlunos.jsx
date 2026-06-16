@@ -8,6 +8,13 @@ const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-p
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 const LIMITE = 5
 
+const BADGES = {
+  primeiro_passo: { label: 'Primeiro Passo', emoji: '🎯' },
+  nota_perfeita: { label: 'Nota Perfeita', emoji: '⭐' },
+  graduado: { label: 'Graduado', emoji: '🎓' },
+  maratonista: { label: 'Maratonista', emoji: '🏃' },
+}
+
 const formatCPF = (v) => {
   const d = v.replace(/\D/g, '').slice(0, 11)
   if (d.length <= 3) return d
@@ -37,64 +44,91 @@ const getInitials = (nome) => nome.split(' ').slice(0, 2).map(w => w[0]).join(''
 const getAvatarColor = (nome) => avatarColors[nome.charCodeAt(0) % avatarColors.length]
 
 export default function MeusAlunos() {
-  const { liderSession } = useAuth()
+  const { liderSession, role } = useAuth()
+  const isAdmin = role === 'admin'
   const semestre = getSemestre()
 
   const [alunos, setAlunos] = useState([])
+  const [comunidades, setComunidades] = useState([])
   const [associacoes, setAssociacoes] = useState([])
   const [matriculas, setMatriculas] = useState({})
-  const [certificados, setCertificados] = useState({})
+  const [conquistas, setConquistas] = useState({})
   const [countSemestre, setCountSemestre] = useState(0)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [showPin, setShowPin] = useState(false)
-  const [form, setForm] = useState({ nome: '', cpf: '', pin: '', associacao_id: '' })
+  const [form, setForm] = useState({ nome: '', cpf: '', pin: '', associacao_id: '', comunidade_id: '' })
   const [error, setError] = useState('')
+  const [filtroCom, setFiltroCom] = useState('')
+
+  const comunidadeId = liderSession?.comunidadeId
 
   const load = async () => {
     setLoading(true)
-    const comunidadeId = liderSession.comunidadeId
 
-    const [alunosRes, assocRes, countRes] = await Promise.all([
-      supabase.from('alunos').select('*').eq('comunidade_id', comunidadeId).order('nome'),
-      supabase.from('associacoes').select('id, nome, sigla').eq('comunidade_id', comunidadeId).order('nome'),
-      supabase.from('alunos').select('*', { count: 'exact', head: true })
-        .eq('comunidade_id', comunidadeId)
-        .gte('created_at', semestre.inicio)
-        .lte('created_at', semestre.fim),
-    ])
-
-    const alunosList = alunosRes.data ?? []
-    setAlunos(alunosList)
-    setAssociacoes(assocRes.data ?? [])
-    setCountSemestre(countRes.count ?? 0)
-
-    if (alunosList.length > 0) {
-      const ids = alunosList.map(a => a.id)
-      const [matRes, certRes] = await Promise.all([
-        supabase.from('matriculas').select('*, cursos(titulo)').in('aluno_id', ids),
-        supabase.from('certificados').select('aluno_id').in('aluno_id', ids),
+    if (isAdmin) {
+      const [alunosRes, comRes, assocRes] = await Promise.all([
+        supabase.from('alunos').select('*, comunidades(nome), associacoes(nome, sigla)').order('nome'),
+        supabase.from('comunidades').select('id, nome').order('nome'),
+        supabase.from('associacoes').select('id, nome, sigla, comunidade_id').order('nome'),
       ])
-      const matMap = {}
-      for (const m of matRes.data ?? []) {
-        if (!matMap[m.aluno_id]) matMap[m.aluno_id] = []
-        matMap[m.aluno_id].push(m)
-      }
-      const certCount = {}
-      for (const c of certRes.data ?? []) {
-        certCount[c.aluno_id] = (certCount[c.aluno_id] ?? 0) + 1
-      }
-      setMatriculas(matMap)
-      setCertificados(certCount)
+      const lista = alunosRes.data ?? []
+      setAlunos(lista)
+      setComunidades(comRes.data ?? [])
+      setAssociacoes(assocRes.data ?? [])
+      if (lista.length > 0) await loadExtras(lista)
+    } else {
+      const [alunosRes, assocRes, countRes] = await Promise.all([
+        supabase.from('alunos').select('*').eq('comunidade_id', comunidadeId).order('nome'),
+        supabase.from('associacoes').select('id, nome, sigla').eq('comunidade_id', comunidadeId).order('nome'),
+        supabase.from('alunos').select('*', { count: 'exact', head: true })
+          .eq('comunidade_id', comunidadeId)
+          .gte('created_at', semestre.inicio)
+          .lte('created_at', semestre.fim),
+      ])
+      const lista = alunosRes.data ?? []
+      setAlunos(lista)
+      setAssociacoes(assocRes.data ?? [])
+      setCountSemestre(countRes.count ?? 0)
+      if (lista.length > 0) await loadExtras(lista)
     }
+
     setLoading(false)
+  }
+
+  const loadExtras = async (lista) => {
+    const ids = lista.map(a => a.id)
+    const [matRes, conquRes] = await Promise.all([
+      supabase.from('matriculas').select('*, cursos(titulo)').in('aluno_id', ids),
+      supabase.from('conquistas').select('aluno_id, tipo').in('aluno_id', ids),
+    ])
+    const matMap = {}
+    for (const m of matRes.data ?? []) {
+      if (!matMap[m.aluno_id]) matMap[m.aluno_id] = []
+      matMap[m.aluno_id].push(m)
+    }
+    const conqMap = {}
+    for (const c of conquRes.data ?? []) {
+      if (!conqMap[c.aluno_id]) conqMap[c.aluno_id] = []
+      conqMap[c.aluno_id].push(c.tipo)
+    }
+    setMatriculas(matMap)
+    setConquistas(conqMap)
   }
 
   useEffect(() => { load() }, [])
 
-  const bloqueado = countSemestre >= LIMITE
+  const bloqueado = !isAdmin && countSemestre >= LIMITE
   const slotsRestantes = LIMITE - countSemestre
+
+  const assocsFiltradas = isAdmin
+    ? associacoes.filter(a => !form.comunidade_id || a.comunidade_id === form.comunidade_id)
+    : associacoes
+
+  const alunosFiltrados = isAdmin && filtroCom
+    ? alunos.filter(a => a.comunidade_id === filtroCom)
+    : alunos
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -106,7 +140,7 @@ export default function MeusAlunos() {
       nome: form.nome,
       cpf: cpfClean,
       pin: form.pin,
-      comunidade_id: liderSession.comunidadeId,
+      comunidade_id: isAdmin ? (form.comunidade_id || null) : comunidadeId,
       associacao_id: form.associacao_id || null,
     })
     if (err) {
@@ -119,6 +153,13 @@ export default function MeusAlunos() {
     load()
   }
 
+  const openModal = () => {
+    setForm({ nome: '', cpf: '', pin: '', associacao_id: '', comunidade_id: '' })
+    setError('')
+    setShowPin(false)
+    setModal(true)
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -126,12 +167,13 @@ export default function MeusAlunos() {
           <div className="w-1 h-7 bg-oceano rounded-full" />
           <div>
             <h1 className="text-2xl font-bold text-petroleum">Alunos EAD</h1>
-            <p className="text-gray-400 text-sm">Gerencie os alunos da sua comunidade</p>
+            <p className="text-gray-400 text-sm">
+              {isAdmin ? 'Todos os alunos cadastrados no sistema' : 'Gerencie os alunos da sua comunidade'}
+            </p>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <button onClick={() => { setForm({ nome: '', cpf: '', pin: '', associacao_id: '' }); setError(''); setShowPin(false); setModal(true) }}
-            disabled={bloqueado}
+          <button onClick={openModal} disabled={bloqueado}
             className="flex items-center gap-2 bg-verde hover:bg-verde-light disabled:opacity-40 disabled:cursor-not-allowed text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
             <Plus size={15} /> Novo Aluno
           </button>
@@ -139,34 +181,52 @@ export default function MeusAlunos() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <GraduationCap size={16} className="text-oceano" />
-          <span className="text-sm font-semibold text-petroleum">{semestre.label}</span>
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <div className="flex gap-1">
-            {Array.from({ length: LIMITE }).map((_, i) => (
-              <div key={i} className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i < countSemestre ? 'bg-oceano text-white' : 'bg-gray-100 text-gray-300'}`}>
-                {i + 1}
-              </div>
-            ))}
+      {/* Semestre (só para líder) */}
+      {!isAdmin && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5 flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <GraduationCap size={16} className="text-oceano" />
+            <span className="text-sm font-semibold text-petroleum">{semestre.label}</span>
           </div>
-          <span className="text-xs text-gray-400 ml-2">
-            {slotsRestantes > 0 ? `${slotsRestantes} vaga${slotsRestantes !== 1 ? 's' : ''} restante${slotsRestantes !== 1 ? 's' : ''}` : 'Limite atingido'}
-          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex gap-1">
+              {Array.from({ length: LIMITE }).map((_, i) => (
+                <div key={i} className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${i < countSemestre ? 'bg-oceano text-white' : 'bg-gray-100 text-gray-300'}`}>
+                  {i + 1}
+                </div>
+              ))}
+            </div>
+            <span className="text-xs text-gray-400 ml-2">
+              {slotsRestantes > 0 ? `${slotsRestantes} vaga${slotsRestantes !== 1 ? 's' : ''} restante${slotsRestantes !== 1 ? 's' : ''}` : 'Limite atingido'}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Filtro por comunidade (admin) */}
+      {isAdmin && comunidades.length > 0 && (
+        <div className="mb-4">
+          <select value={filtroCom} onChange={e => setFiltroCom(e.target.value)}
+            className="border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano">
+            <option value="">Todas as comunidades ({alunos.length} alunos)</option>
+            {comunidades.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.nome} ({alunos.filter(a => a.comunidade_id === c.id).length} alunos)
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {loading ? (
         <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
-      ) : alunos.length === 0 ? (
+      ) : alunosFiltrados.length === 0 ? (
         <div className="py-14 text-center text-cinza text-sm">Nenhum aluno cadastrado ainda.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {alunos.map(a => {
+          {alunosFiltrados.map(a => {
             const mats = matriculas[a.id] ?? []
-            const certs = certificados[a.id] ?? 0
+            const badges = conquistas[a.id] ?? []
             return (
               <div key={a.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3 mb-3">
@@ -176,14 +236,22 @@ export default function MeusAlunos() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-petroleum text-sm leading-tight">{a.nome}</p>
                     <p className="text-xs text-gray-400">{maskCPF(a.cpf)}</p>
+                    {isAdmin && a.comunidades?.nome && (
+                      <p className="text-xs text-oceano mt-0.5 font-medium">{a.comunidades.nome}</p>
+                    )}
                   </div>
-                  {certs > 0 && (
-                    <div className="flex items-center gap-1 shrink-0 bg-laranja/15 text-laranja px-2 py-0.5 rounded-full">
-                      <Award size={11} />
-                      <span className="text-xs font-bold">{certs}</span>
-                    </div>
-                  )}
                 </div>
+
+                {badges.length > 0 && (
+                  <div className="flex gap-1 mb-2 flex-wrap">
+                    {badges.map(tipo => (
+                      <span key={tipo} title={BADGES[tipo]?.label ?? tipo} className="text-base cursor-help" role="img" aria-label={BADGES[tipo]?.label}>
+                        {BADGES[tipo]?.emoji ?? '🏅'}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 {mats.length === 0 ? (
                   <p className="text-xs text-gray-300 italic">Nenhum curso iniciado</p>
                 ) : (
@@ -231,11 +299,22 @@ export default function MeusAlunos() {
               </div>
               <p className="text-xs text-gray-400 mt-1">O aluno usará CPF + este PIN para entrar.</p>
             </div>
+            {isAdmin && (
+              <div>
+                <label className={labelCls}>Comunidade</label>
+                <select value={form.comunidade_id}
+                  onChange={e => setForm(f => ({ ...f, comunidade_id: e.target.value, associacao_id: '' }))}
+                  className={inputCls}>
+                  <option value="">— Sem comunidade —</option>
+                  {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className={labelCls}>Associação</label>
               <select value={form.associacao_id} onChange={e => setForm(f => ({ ...f, associacao_id: e.target.value }))} className={inputCls}>
                 <option value="">— Sem associação —</option>
-                {associacoes.map(a => <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>)}
+                {assocsFiltradas.map(a => <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>)}
               </select>
             </div>
             {error && <div className="bg-laranja/10 border border-laranja/30 text-laranja rounded-lg px-3 py-2 text-sm">{error}</div>}

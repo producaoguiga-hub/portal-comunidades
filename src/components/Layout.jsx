@@ -14,6 +14,7 @@ const navAdmin = [
   { id: 'unidades', label: 'Unidades', icon: Layers },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
   { id: 'cursos-ead', label: 'Cursos EAD', icon: GraduationCap },
+  { id: 'alunos-ead', label: 'Alunos EAD', icon: Users },
   { id: 'mapa', label: 'Mapa', icon: Map },
   { id: 'comunidades', label: 'Comunidades', icon: MapPin },
   { id: 'usuarios', label: 'Usuários', icon: Shield },

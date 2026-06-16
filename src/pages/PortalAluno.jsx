@@ -1,15 +1,55 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { ChevronLeft, CheckCircle, LogOut, GraduationCap, Award, Download, Lock, Play, FileText } from 'lucide-react'
+import { ChevronLeft, CheckCircle, LogOut, GraduationCap, Award, Download, Lock, FileText } from 'lucide-react'
 
 const NOTA_MINIMA = 0.7
+
+const BADGES = {
+  primeiro_passo: { label: 'Primeiro Passo', emoji: '🎯', desc: 'Primeira aula concluída' },
+  nota_perfeita: { label: 'Nota Perfeita', emoji: '⭐', desc: '100% no quiz' },
+  graduado: { label: 'Graduado', emoji: '🎓', desc: 'Primeiro certificado' },
+  maratonista: { label: 'Maratonista', emoji: '🏃', desc: '3 cursos concluídos' },
+}
 
 const getEmbedUrl = (url) => {
   if (!url) return null
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/)
   if (yt) return `https://www.youtube.com/embed/${yt[1]}`
   return url
+}
+
+function MediaPlayer({ aula }) {
+  if (!aula.video_url) return null
+  const tipo = aula.tipo || 'youtube'
+
+  if (tipo === 'pdf') {
+    return (
+      <div className="mt-3 rounded-lg overflow-hidden border border-gray-100">
+        <iframe src={aula.video_url} className="w-full rounded-lg" style={{ height: '520px' }}
+          title={aula.titulo} />
+      </div>
+    )
+  }
+  if (tipo === 'video') {
+    return (
+      <div className="mt-3">
+        <video controls src={aula.video_url} className="w-full rounded-lg" style={{ maxHeight: '420px' }}>
+          Seu navegador não suporta este formato de vídeo.
+        </video>
+      </div>
+    )
+  }
+  // youtube (default)
+  const embedUrl = getEmbedUrl(aula.video_url)
+  if (!embedUrl) return null
+  return (
+    <div className="mt-3 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+      <iframe src={embedUrl} className="w-full h-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen title={aula.titulo} />
+    </div>
+  )
 }
 
 function CertificadoView({ aluno, curso, cert, onVoltar }) {
@@ -57,6 +97,7 @@ export default function PortalAluno() {
   const [cursos, setCursos] = useState([])
   const [matriculas, setMatriculas] = useState([])
   const [certificados, setCertificados] = useState([])
+  const [conquistasList, setConquistasList] = useState([])
   const [loading, setLoading] = useState(true)
 
   const [cursoAtual, setCursoAtual] = useState(null)
@@ -69,21 +110,37 @@ export default function PortalAluno() {
   const [resultado, setResultado] = useState(null)
 
   const [certAtual, setCertAtual] = useState(null)
+  const [novaBadge, setNovaBadge] = useState(null)
 
   const load = async () => {
     setLoading(true)
-    const [cursosRes, matriculasRes, certsRes] = await Promise.all([
+    const [cursosRes, matriculasRes, certsRes, conquRes] = await Promise.all([
       supabase.from('cursos').select('*').eq('ativo', true).order('created_at', { ascending: false }),
       supabase.from('matriculas').select('*').eq('aluno_id', alunoSession.alunoId),
       supabase.from('certificados').select('*, cursos(titulo)').eq('aluno_id', alunoSession.alunoId),
+      supabase.from('conquistas').select('*').eq('aluno_id', alunoSession.alunoId),
     ])
     setCursos(cursosRes.data ?? [])
     setMatriculas(matriculasRes.data ?? [])
     setCertificados(certsRes.data ?? [])
+    setConquistasList(conquRes.data ?? [])
     setLoading(false)
   }
 
   useEffect(() => { load() }, [])
+
+  const ganharBadge = async (tipo, certsAtualizado) => {
+    const lista = certsAtualizado ?? conquistasList
+    if (lista.some(c => c.tipo === tipo)) return
+    const { data } = await supabase.from('conquistas')
+      .insert({ aluno_id: alunoSession.alunoId, tipo })
+      .select().single()
+    if (data) {
+      setConquistasList(prev => [...prev, data])
+      setNovaBadge(BADGES[tipo])
+      setTimeout(() => setNovaBadge(null), 3500)
+    }
+  }
 
   const abrirCurso = async (curso) => {
     setCursoAtual(curso)
@@ -94,7 +151,7 @@ export default function PortalAluno() {
     const { data: aulasData } = await supabase.from('aulas').select('*').eq('curso_id', curso.id).order('ordem')
     setAulas(aulasData ?? [])
 
-    let mat = matriculas.find(m => m.curso_id === curso.id)
+    const mat = matriculas.find(m => m.curso_id === curso.id)
     if (!mat) {
       const { data: newMat } = await supabase.from('matriculas')
         .insert({ aluno_id: alunoSession.alunoId, curso_id: curso.id })
@@ -109,8 +166,10 @@ export default function PortalAluno() {
 
   const concluirAula = async (aulaId) => {
     if (progresso.has(aulaId)) return
+    const isFirst = progresso.size === 0
     await supabase.from('progresso_aulas').insert({ aluno_id: alunoSession.alunoId, aula_id: aulaId })
     setProgresso(prev => new Set([...prev, aulaId]))
+    if (isFirst) await ganharBadge('primeiro_passo')
   }
 
   const abrirQuiz = async () => {
@@ -123,6 +182,7 @@ export default function PortalAluno() {
   const submeterQuiz = async () => {
     if (questoes.length === 0) return
     setSubmitting(true)
+
     let acertos = 0
     for (const q of questoes) {
       if (respostas[q.id] === q.resposta_correta) acertos++
@@ -132,25 +192,32 @@ export default function PortalAluno() {
     const aprovado = nota >= NOTA_MINIMA
 
     await supabase.from('tentativas_quiz').insert({
-      aluno_id: alunoSession.alunoId,
-      curso_id: cursoAtual.id,
-      respostas,
-      acertos,
-      total,
-      aprovado,
+      aluno_id: alunoSession.alunoId, curso_id: cursoAtual.id,
+      respostas, acertos, total, aprovado,
     })
 
+    let certsAtualizados = certificados
     if (aprovado) {
       const jaTemCert = certificados.find(c => c.curso_id === cursoAtual.id)
       if (!jaTemCert) {
         const { data: novoCert } = await supabase.from('certificados')
           .insert({ aluno_id: alunoSession.alunoId, curso_id: cursoAtual.id })
           .select().single()
-        if (novoCert) setCertificados(prev => [...prev, { ...novoCert, cursos: { titulo: cursoAtual.titulo } }])
+        if (novoCert) {
+          certsAtualizados = [...certificados, { ...novoCert, cursos: { titulo: cursoAtual.titulo } }]
+          setCertificados(certsAtualizados)
+        }
       }
       await supabase.from('matriculas').update({ status: 'concluido', concluido_em: new Date().toISOString() })
         .eq('aluno_id', alunoSession.alunoId).eq('curso_id', cursoAtual.id)
       setMatriculas(prev => prev.map(m => m.curso_id === cursoAtual.id ? { ...m, status: 'concluido' } : m))
+
+      // Nota Perfeita
+      if (nota === 1) await ganharBadge('nota_perfeita')
+      // Graduado — primeiro certificado
+      if (certsAtualizados.length === 1) await ganharBadge('graduado')
+      // Maratonista — 3 certificados
+      if (certsAtualizados.length >= 3) await ganharBadge('maratonista')
     }
 
     setResultado({ acertos, total, nota, aprovado })
@@ -180,6 +247,7 @@ export default function PortalAluno() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <header className="bg-petroleum shadow-sm sticky top-0 z-40">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center gap-4">
           <img src="/logo-colorida.png" alt="Logo" className="h-10 object-contain" />
@@ -195,6 +263,18 @@ export default function PortalAluno() {
         </div>
       </header>
 
+      {/* Toast nova conquista */}
+      {novaBadge && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-petroleum text-white px-4 py-3 rounded-xl shadow-2xl border border-verde/30">
+          <span className="text-3xl">{novaBadge.emoji}</span>
+          <div>
+            <p className="text-xs font-semibold text-verde leading-none mb-0.5">Nova conquista!</p>
+            <p className="text-sm font-bold">{novaBadge.label}</p>
+            <p className="text-xs text-white/50">{novaBadge.desc}</p>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto px-6 py-8">
 
         {/* ── HOME ── */}
@@ -208,8 +288,31 @@ export default function PortalAluno() {
               </div>
             </div>
 
+            {/* Conquistas */}
+            {conquistasList.length > 0 && (
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
+                <p className="text-xs font-bold text-petroleum/60 uppercase tracking-wide mb-3">Minhas Conquistas</p>
+                <div className="flex flex-wrap gap-2">
+                  {conquistasList.map(c => {
+                    const b = BADGES[c.tipo]
+                    if (!b) return null
+                    return (
+                      <div key={c.id} className="flex items-center gap-2 px-3 py-2 bg-petroleum/5 border border-gray-100 rounded-xl">
+                        <span className="text-xl">{b.emoji}</span>
+                        <div>
+                          <p className="text-xs font-bold text-petroleum leading-tight">{b.label}</p>
+                          <p className="text-xs text-gray-400">{b.desc}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Certificados */}
             {certificados.length > 0 && (
-              <div className="bg-white rounded-xl border border-laranja/20 shadow-sm p-4 mb-6">
+              <div className="bg-white rounded-xl border border-laranja/20 shadow-sm p-4 mb-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Award size={15} className="text-laranja" />
                   <span className="text-sm font-bold text-petroleum uppercase tracking-wide">Certificados Conquistados</span>
@@ -218,8 +321,7 @@ export default function PortalAluno() {
                   {certificados.map(cert => (
                     <button key={cert.id} onClick={() => abrirCertificado(cert, cert.cursos)}
                       className="flex items-center gap-2 px-3 py-1.5 bg-laranja/10 hover:bg-laranja/20 border border-laranja/20 rounded-lg text-sm text-petroleum font-medium transition-colors">
-                      <Award size={13} className="text-laranja" />
-                      {cert.cursos?.titulo}
+                      <Award size={13} className="text-laranja" /> {cert.cursos?.titulo}
                     </button>
                   ))}
                 </div>
@@ -239,9 +341,7 @@ export default function PortalAluno() {
                     <button key={curso.id} onClick={() => abrirCurso(curso)} className="text-left">
                       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                         {curso.thumbnail_url ? (
-                          <div className="h-32 overflow-hidden">
-                            <img src={curso.thumbnail_url} alt={curso.titulo} className="w-full h-full object-cover" />
-                          </div>
+                          <div className="h-32 overflow-hidden"><img src={curso.thumbnail_url} alt={curso.titulo} className="w-full h-full object-cover" /></div>
                         ) : (
                           <div className="h-24 bg-gradient-to-br from-oceano/20 to-verde/20 flex items-center justify-center">
                             <GraduationCap size={32} className="text-oceano/40" />
@@ -274,8 +374,7 @@ export default function PortalAluno() {
         {/* ── CURSO ── */}
         {view === 'curso' && cursoAtual && (
           <>
-            <button onClick={() => setView('home')}
-              className="flex items-center gap-1 text-sm text-petroleum/60 hover:text-petroleum font-medium mb-4 transition-colors">
+            <button onClick={() => setView('home')} className="flex items-center gap-1 text-sm text-petroleum/60 hover:text-petroleum font-medium mb-4 transition-colors">
               <ChevronLeft size={16} /> Meus Cursos
             </button>
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
@@ -307,7 +406,7 @@ export default function PortalAluno() {
               {aulas.map((aula, i) => {
                 const concluida = progresso.has(aula.id)
                 const desbloqueada = i === 0 || progresso.has(aulas[i - 1]?.id)
-                const embedUrl = getEmbedUrl(aula.video_url)
+                const isPdf = aula.tipo === 'pdf'
                 return (
                   <div key={aula.id} className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${!desbloqueada ? 'opacity-50 border-gray-100' : concluida ? 'border-verde/30' : 'border-gray-100'}`}>
                     <div className="p-4">
@@ -316,7 +415,10 @@ export default function PortalAluno() {
                           {concluida ? <CheckCircle size={16} /> : desbloqueada ? <span className="text-sm font-bold">{i + 1}</span> : <Lock size={14} />}
                         </div>
                         <div className="flex-1">
-                          <p className="font-semibold text-petroleum text-sm">{aula.titulo}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-petroleum text-sm">{aula.titulo}</p>
+                            {isPdf && <span className="text-xs bg-orange-100 text-orange-500 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5"><FileText size={10} /> PDF</span>}
+                          </div>
                           {aula.descricao && <p className="text-xs text-gray-400 mt-0.5">{aula.descricao}</p>}
                           {desbloqueada && (
                             <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -340,13 +442,7 @@ export default function PortalAluno() {
                           )}
                         </div>
                       </div>
-                      {desbloqueada && embedUrl && (
-                        <div className="mt-3 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
-                          <iframe src={embedUrl} className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen title={aula.titulo} />
-                        </div>
-                      )}
+                      {desbloqueada && <MediaPlayer aula={aula} />}
                     </div>
                   </div>
                 )
@@ -357,8 +453,7 @@ export default function PortalAluno() {
               <div className="bg-oceano/10 border border-oceano/20 rounded-xl p-5 text-center">
                 <p className="text-sm text-petroleum font-semibold mb-1">Parabéns! Você concluiu todas as aulas.</p>
                 <p className="text-xs text-gray-500 mb-3">Agora faça a prova para conquistar seu certificado.</p>
-                <button onClick={abrirQuiz}
-                  className="bg-verde hover:bg-verde-light text-petroleum px-6 py-2 rounded-lg text-sm font-bold transition-colors">
+                <button onClick={abrirQuiz} className="bg-verde hover:bg-verde-light text-petroleum px-6 py-2 rounded-lg text-sm font-bold transition-colors">
                   Fazer Prova
                 </button>
               </div>
@@ -369,8 +464,7 @@ export default function PortalAluno() {
         {/* ── QUIZ ── */}
         {view === 'quiz' && (
           <>
-            <button onClick={() => setView('curso')}
-              className="flex items-center gap-1 text-sm text-petroleum/60 hover:text-petroleum font-medium mb-4 transition-colors">
+            <button onClick={() => setView('curso')} className="flex items-center gap-1 text-sm text-petroleum/60 hover:text-petroleum font-medium mb-4 transition-colors">
               <ChevronLeft size={16} /> Voltar ao curso
             </button>
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
@@ -430,8 +524,7 @@ export default function PortalAluno() {
                   Tentar Novamente
                 </button>
               )}
-              <button onClick={() => setView('curso')}
-                className="text-sm text-petroleum/60 hover:text-petroleum transition-colors mt-1 block mx-auto">
+              <button onClick={() => setView('curso')} className="text-sm text-petroleum/60 hover:text-petroleum transition-colors mt-1 block mx-auto">
                 Voltar ao curso
               </button>
             </div>

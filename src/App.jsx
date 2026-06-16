@@ -13,11 +13,14 @@ import Usuarios from './pages/Usuarios'
 import Associacoes from './pages/Associacoes'
 import Mapa from './pages/Mapa'
 import Unidades from './pages/Unidades'
+import CursosEAD from './pages/CursosEAD'
+import MeusAlunos from './pages/MeusAlunos'
+import PortalAluno from './pages/PortalAluno'
 
 const defaultPage = { admin: 'dashboard', gestor: 'dashboard', lider: 'minha-comunidade' }
 
 function AppContent() {
-  const { user, role, liderSession, unidadeSession, loading } = useAuth()
+  const { user, role, liderSession, unidadeSession, alunoSession, loading } = useAuth()
   const [page, setPage] = useState(null)
 
   const currentRole = liderSession ? 'lider' : unidadeSession ? 'gestor' : role
@@ -34,6 +37,8 @@ function AppContent() {
     )
   }
 
+  if (alunoSession) return <PortalAluno />
+
   if (!user && !liderSession && !unidadeSession) return <Login />
 
   const pages = {
@@ -46,6 +51,8 @@ function AppContent() {
     mapa: <Mapa />,
     unidades: <Unidades />,
     'minha-comunidade': <MinhaComunidade />,
+    'cursos-ead': <CursosEAD />,
+    'alunos-ead': <MeusAlunos />,
     ...(role === 'admin' ? {
       comunidades: <Comunidades />,
       usuarios: <Usuarios />,

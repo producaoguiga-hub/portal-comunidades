@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import {
   Users, Briefcase, Heart, UserCheck, Calendar, LayoutDashboard,
-  LogOut, Menu, X, ChevronRight, Home, MapPin, Shield, Building2, Map, Layers
+  LogOut, Menu, X, ChevronRight, Home, MapPin, Shield, Building2, Map, Layers, GraduationCap
 } from 'lucide-react'
 
 const navAdmin = [
@@ -13,6 +13,7 @@ const navAdmin = [
   { id: 'funcionarios', label: 'Funcionários', icon: UserCheck },
   { id: 'unidades', label: 'Unidades', icon: Layers },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
+  { id: 'cursos-ead', label: 'Cursos EAD', icon: GraduationCap },
   { id: 'mapa', label: 'Mapa', icon: Map },
   { id: 'comunidades', label: 'Comunidades', icon: MapPin },
   { id: 'usuarios', label: 'Usuários', icon: Shield },
@@ -34,6 +35,7 @@ const navLider = [
   { id: 'vagas', label: 'Banco de Talentos', icon: Briefcase },
   { id: 'servicos', label: 'Serviços', icon: Heart },
   { id: 'acoes', label: 'Ações Sociais', icon: Calendar },
+  { id: 'alunos-ead', label: 'Alunos EAD', icon: GraduationCap },
 ]
 
 export default function Layout({ currentPage, onNavigate, children }) {

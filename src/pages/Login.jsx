@@ -29,8 +29,16 @@ function PinField({ value, onChange, showPin, onTogglePin }) {
   )
 }
 
+const formatCPF = (v) => {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  if (d.length <= 3) return d
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
+}
+
 export default function Login() {
-  const { signIn, signInWithPin, signInWithPinUnidade } = useAuth()
+  const { signIn, signInWithPin, signInWithPinUnidade, signInAluno } = useAuth()
   const [mode, setMode] = useState('gestor')
 
   const [email, setEmail] = useState('')
@@ -44,6 +52,10 @@ export default function Login() {
 
   const [pin, setPin] = useState('')
   const [showPin, setShowPin] = useState(false)
+
+  const [cpf, setCpf] = useState('')
+  const [alunoPin, setAlunoPin] = useState('')
+  const [showAlunoPin, setShowAlunoPin] = useState(false)
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -88,8 +100,16 @@ export default function Login() {
     setLoading(false)
   }
 
-  const switchMode = (m) => { setMode(m); setError(''); setPin('') }
+  const handleAlunoSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    const { error } = await signInAluno(cpf, alunoPin)
+    if (error) setError(error.message)
+    setLoading(false)
+  }
 
+  const switchMode = (m) => { setMode(m); setError(''); setPin(''); setAlunoPin('') }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
@@ -111,6 +131,7 @@ export default function Login() {
                 { id: 'gestor', label: 'Admin' },
                 { id: 'unidade', label: 'Unidade' },
                 { id: 'lider', label: 'Líder' },
+                { id: 'aluno', label: 'Aluno' },
               ].map(t => (
                 <button key={t.id} onClick={() => switchMode(t.id)}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -180,6 +201,34 @@ export default function Login() {
                 <PinField value={pin} onChange={setPin} showPin={showPin} onTogglePin={() => setShowPin(v => !v)} />
                 {error && <div className="bg-laranja/10 border border-laranja/30 text-laranja rounded-lg px-4 py-3 text-sm">{error}</div>}
                 <button type="submit" disabled={loading || !comunidadeId}
+                  className="w-full bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum font-semibold py-2.5 rounded-lg transition-colors text-sm shadow-sm">
+                  {loading ? 'Verificando...' : 'Entrar'}
+                </button>
+              </form>
+            )}
+
+            {/* Aluno */}
+            {mode === 'aluno' && (
+              <form onSubmit={handleAlunoSubmit} className="space-y-4">
+                <div>
+                  <label className={labelCls}>CPF</label>
+                  <input value={cpf} onChange={e => setCpf(formatCPF(e.target.value))}
+                    required className={inputCls} placeholder="000.000.000-00" />
+                </div>
+                <div>
+                  <label className={labelCls}>PIN</label>
+                  <div className="relative">
+                    <input type={showAlunoPin ? 'text' : 'password'} value={alunoPin}
+                      onChange={e => setAlunoPin(e.target.value)}
+                      required maxLength={10} className={`${inputCls} pr-10`} placeholder="••••" />
+                    <button type="button" onClick={() => setShowAlunoPin(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-cinza hover:text-petroleum transition-colors">
+                      {showAlunoPin ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+                {error && <div className="bg-laranja/10 border border-laranja/30 text-laranja rounded-lg px-4 py-3 text-sm">{error}</div>}
+                <button type="submit" disabled={loading}
                   className="w-full bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum font-semibold py-2.5 rounded-lg transition-colors text-sm shadow-sm">
                   {loading ? 'Verificando...' : 'Entrar'}
                 </button>

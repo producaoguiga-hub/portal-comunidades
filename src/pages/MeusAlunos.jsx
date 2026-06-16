@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, Eye, EyeOff, GraduationCap, BookOpen, Award } from 'lucide-react'
+import { Plus, Eye, EyeOff, GraduationCap, BookOpen, Award, Edit2, Trash2 } from 'lucide-react'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -23,10 +23,11 @@ const formatCPF = (v) => {
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
 }
 
-const maskCPF = (cpf) => {
+const displayCPF = (cpf, full = false) => {
   if (!cpf) return '—'
   const d = cpf.replace(/\D/g, '')
   if (d.length < 11) return cpf
+  if (full) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
   return `${d.slice(0, 3)}.***.***-${d.slice(9)}`
 }
 
@@ -43,6 +44,8 @@ const avatarColors = ['bg-oceano/20 text-oceano', 'bg-verde/40 text-petroleum', 
 const getInitials = (nome) => nome.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 const getAvatarColor = (nome) => avatarColors[nome.charCodeAt(0) % avatarColors.length]
 
+const emptyForm = { nome: '', cpf: '', pin: '', associacao_id: '', comunidade_id: '' }
+
 export default function MeusAlunos() {
   const { liderSession, role } = useAuth()
   const isAdmin = role === 'admin'
@@ -55,10 +58,12 @@ export default function MeusAlunos() {
   const [conquistas, setConquistas] = useState({})
   const [countSemestre, setCountSemestre] = useState(0)
   const [loading, setLoading] = useState(true)
+
   const [modal, setModal] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [showPin, setShowPin] = useState(false)
-  const [form, setForm] = useState({ nome: '', cpf: '', pin: '', associacao_id: '', comunidade_id: '' })
   const [error, setError] = useState('')
   const [filtroCom, setFiltroCom] = useState('')
 
@@ -66,7 +71,6 @@ export default function MeusAlunos() {
 
   const load = async () => {
     setLoading(true)
-
     if (isAdmin) {
       const [alunosRes, comRes, assocRes] = await Promise.all([
         supabase.from('alunos').select('*, comunidades(nome), associacoes(nome, sigla)').order('nome'),
@@ -93,7 +97,6 @@ export default function MeusAlunos() {
       setCountSemestre(countRes.count ?? 0)
       if (lista.length > 0) await loadExtras(lista)
     }
-
     setLoading(false)
   }
 
@@ -130,34 +133,73 @@ export default function MeusAlunos() {
     ? alunos.filter(a => a.comunidade_id === filtroCom)
     : alunos
 
-  const handleSave = async (e) => {
-    e.preventDefault()
-    setError('')
-    if (bloqueado) return
-    setSaving(true)
-    const cpfClean = form.cpf.replace(/\D/g, '')
-    const { error: err } = await supabase.from('alunos').insert({
-      nome: form.nome,
-      cpf: cpfClean,
-      pin: form.pin,
-      comunidade_id: isAdmin ? (form.comunidade_id || null) : comunidadeId,
-      associacao_id: form.associacao_id || null,
-    })
-    if (err) {
-      setError(err.code === '23505' ? 'Este CPF já está cadastrado.' : err.message)
-      setSaving(false)
-      return
-    }
-    setSaving(false)
-    setModal(false)
-    load()
-  }
-
-  const openModal = () => {
-    setForm({ nome: '', cpf: '', pin: '', associacao_id: '', comunidade_id: '' })
+  const openCreate = () => {
+    setForm(emptyForm)
+    setEditId(null)
     setError('')
     setShowPin(false)
     setModal(true)
+  }
+
+  const openEdit = (a) => {
+    setForm({
+      nome: a.nome,
+      cpf: displayCPF(a.cpf, true),
+      pin: '',
+      associacao_id: a.associacao_id ?? '',
+      comunidade_id: a.comunidade_id ?? '',
+    })
+    setEditId(a.id)
+    setError('')
+    setShowPin(false)
+    setModal(true)
+  }
+
+  const handleDelete = async (a) => {
+    if (!confirm(`Excluir o aluno "${a.nome}"? Isso remove todo o histórico de cursos e certificados.`)) return
+    await supabase.from('alunos').delete().eq('id', a.id)
+    load()
+  }
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setError('')
+    if (!editId && bloqueado) return
+    setSaving(true)
+    const cpfClean = form.cpf.replace(/\D/g, '')
+
+    if (editId) {
+      const payload = {
+        nome: form.nome,
+        cpf: cpfClean,
+        associacao_id: form.associacao_id || null,
+      }
+      if (isAdmin) payload.comunidade_id = form.comunidade_id || null
+      if (form.pin) payload.pin = form.pin
+      const { error: err } = await supabase.from('alunos').update(payload).eq('id', editId)
+      if (err) {
+        setError(err.code === '23505' ? 'Este CPF já está em uso por outro aluno.' : err.message)
+        setSaving(false)
+        return
+      }
+    } else {
+      const { error: err } = await supabase.from('alunos').insert({
+        nome: form.nome,
+        cpf: cpfClean,
+        pin: form.pin,
+        comunidade_id: isAdmin ? (form.comunidade_id || null) : comunidadeId,
+        associacao_id: form.associacao_id || null,
+      })
+      if (err) {
+        setError(err.code === '23505' ? 'Este CPF já está cadastrado.' : err.message)
+        setSaving(false)
+        return
+      }
+    }
+
+    setSaving(false)
+    setModal(false)
+    load()
   }
 
   return (
@@ -173,7 +215,7 @@ export default function MeusAlunos() {
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <button onClick={openModal} disabled={bloqueado}
+          <button onClick={openCreate} disabled={bloqueado}
             className="flex items-center gap-2 bg-verde hover:bg-verde-light disabled:opacity-40 disabled:cursor-not-allowed text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
             <Plus size={15} /> Novo Aluno
           </button>
@@ -229,17 +271,29 @@ export default function MeusAlunos() {
             const badges = conquistas[a.id] ?? []
             return (
               <div key={a.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-3 mb-3">
+                <div className="flex items-start gap-3 mb-2">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${getAvatarColor(a.nome)}`}>
                     {getInitials(a.nome)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-petroleum text-sm leading-tight">{a.nome}</p>
-                    <p className="text-xs text-gray-400">{maskCPF(a.cpf)}</p>
+                    <p className="text-xs text-gray-400 font-mono">{displayCPF(a.cpf, isAdmin)}</p>
                     {isAdmin && a.comunidades?.nome && (
                       <p className="text-xs text-oceano mt-0.5 font-medium">{a.comunidades.nome}</p>
                     )}
                   </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => openEdit(a)} title="Editar"
+                        className="p-1.5 text-oceano hover:bg-oceano/10 rounded-lg transition-colors">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(a)} title="Excluir"
+                        className="p-1.5 text-laranja hover:bg-laranja/10 rounded-lg transition-colors">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {badges.length > 0 && (
@@ -274,7 +328,7 @@ export default function MeusAlunos() {
       )}
 
       {modal && (
-        <Modal title="Novo Aluno" onClose={() => setModal(false)}>
+        <Modal title={editId ? 'Editar Aluno' : 'Novo Aluno'} onClose={() => setModal(false)}>
           <form onSubmit={handleSave} className="space-y-4">
             <div>
               <label className={labelCls}>Nome completo *</label>
@@ -287,17 +341,20 @@ export default function MeusAlunos() {
                 required className={inputCls} placeholder="000.000.000-00" />
             </div>
             <div>
-              <label className={labelCls}>PIN de acesso *</label>
+              <label className={labelCls}>
+                PIN de acesso {editId ? '(deixe em branco para manter o atual)' : '*'}
+              </label>
               <div className="relative">
                 <input type={showPin ? 'text' : 'password'} value={form.pin}
                   onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
-                  required maxLength={10} className={`${inputCls} pr-10`} placeholder="Crie um PIN para o aluno" />
+                  required={!editId} maxLength={10} className={`${inputCls} pr-10`}
+                  placeholder={editId ? 'Novo PIN (opcional)' : 'Crie um PIN para o aluno'} />
                 <button type="button" onClick={() => setShowPin(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-cinza hover:text-petroleum transition-colors">
                   {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">O aluno usará CPF + este PIN para entrar.</p>
+              <p className="text-xs text-gray-400 mt-1">O aluno usará CPF + PIN para entrar.</p>
             </div>
             {isAdmin && (
               <div>
@@ -323,7 +380,7 @@ export default function MeusAlunos() {
                 className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
               <button type="submit" disabled={saving}
                 className="flex-1 bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum py-2 rounded-lg text-sm font-semibold transition-colors">
-                {saving ? 'Salvando...' : 'Cadastrar'}
+                {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Cadastrar'}
               </button>
             </div>
           </form>

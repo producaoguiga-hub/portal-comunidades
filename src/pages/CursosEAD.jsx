@@ -42,6 +42,11 @@ export default function CursosEAD() {
 
   const [inscritos, setInscritos] = useState([])
 
+  const [modalInscreverAluno, setModalInscreverAluno] = useState(false)
+  const [todosAlunos, setTodosAlunos] = useState([])
+  const [alunoIdParaInscrever, setAlunoIdParaInscrever] = useState('')
+  const [inscrevendo, setInscrevendo] = useState(false)
+
   const loadCursos = async () => {
     setLoading(true)
     const { data } = await supabase.from('cursos').select('*').order('created_at', { ascending: false })
@@ -123,6 +128,24 @@ export default function CursosEAD() {
   const handleDeleteQuestao = async (id) => {
     if (!confirm('Excluir questão?')) return
     await supabase.from('questoes').delete().eq('id', id); setQuestoes(prev => prev.filter(q => q.id !== id))
+  }
+
+  const openInscreverAluno = async () => {
+    setAlunoIdParaInscrever('')
+    const { data } = await supabase.from('alunos').select('id, nome, cpf, comunidades(nome)').order('nome')
+    const inscritosIds = inscritos.map(i => i.aluno_id)
+    setTodosAlunos((data ?? []).filter(a => !inscritosIds.includes(a.id)))
+    setModalInscreverAluno(true)
+  }
+
+  const handleInscreverAluno = async () => {
+    if (!alunoIdParaInscrever || !cursoDetalhe) return
+    setInscrevendo(true)
+    await supabase.from('matriculas').insert({ aluno_id: alunoIdParaInscrever, curso_id: cursoDetalhe.id })
+    setInscrevendo(false)
+    setModalInscreverAluno(false)
+    const { data } = await supabase.from('matriculas').select('*, alunos(nome, cpf, comunidades(nome))').eq('curso_id', cursoDetalhe.id).order('iniciado_em', { ascending: false })
+    setInscritos(data ?? [])
   }
 
   const tipoInfo = (tipo) => {
@@ -249,6 +272,12 @@ export default function CursosEAD() {
         )}
 
         {detalheTab === 'inscritos' && (
+          <div>
+            <div className="flex justify-end mb-3">
+              <button onClick={openInscreverAluno} className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
+                <Plus size={14} /> Inscrever Aluno
+              </button>
+            </div>
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             {inscritos.length === 0 ? (
               <div className="py-14 text-center text-cinza text-sm">Nenhum aluno inscrito ainda.</div>
@@ -278,6 +307,39 @@ export default function CursosEAD() {
               </div>
             )}
           </div>
+          </div>
+        )}
+
+        {modalInscreverAluno && (
+          <Modal title="Inscrever Aluno no Curso" onClose={() => setModalInscreverAluno(false)}>
+            <div className="space-y-4">
+              {todosAlunos.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">Todos os alunos cadastrados já estão inscritos neste curso.</p>
+              ) : (
+                <div>
+                  <label className={labelCls}>Selecione o aluno</label>
+                  <select value={alunoIdParaInscrever} onChange={e => setAlunoIdParaInscrever(e.target.value)} className={inputCls}>
+                    <option value="">— Escolha um aluno —</option>
+                    {todosAlunos.map(a => (
+                      <option key={a.id} value={a.id}>
+                        {a.nome}{a.comunidades?.nome ? ` — ${a.comunidades.nome}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setModalInscreverAluno(false)}
+                  className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
+                {todosAlunos.length > 0 && (
+                  <button onClick={handleInscreverAluno} disabled={!alunoIdParaInscrever || inscrevendo}
+                    className="flex-1 bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum py-2 rounded-lg text-sm font-semibold transition-colors">
+                    {inscrevendo ? 'Inscrevendo...' : 'Inscrever'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </Modal>
         )}
 
         {modalAula && (

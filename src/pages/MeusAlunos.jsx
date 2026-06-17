@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, Eye, EyeOff, GraduationCap, BookOpen, Award, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Eye, EyeOff, GraduationCap, BookOpen, Award, Edit2, Trash2, BookMarked } from 'lucide-react'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -54,11 +54,13 @@ export default function MeusAlunos() {
   const [alunos, setAlunos] = useState([])
   const [comunidades, setComunidades] = useState([])
   const [associacoes, setAssociacoes] = useState([])
+  const [cursos, setCursos] = useState([])
   const [matriculas, setMatriculas] = useState({})
   const [conquistas, setConquistas] = useState({})
   const [countSemestre, setCountSemestre] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // Modal cadastro / edição
   const [modal, setModal] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -67,10 +69,20 @@ export default function MeusAlunos() {
   const [error, setError] = useState('')
   const [filtroCom, setFiltroCom] = useState('')
 
+  // Modal inscrição em curso
+  const [modalInscrever, setModalInscrever] = useState(false)
+  const [alunoInscrever, setAlunoInscrever] = useState(null)
+  const [cursoSelecionado, setCursoSelecionado] = useState('')
+  const [matAluno, setMatAluno] = useState([])
+  const [inscrevendo, setInscrevendo] = useState(false)
+
   const comunidadeId = liderSession?.comunidadeId
 
   const load = async () => {
     setLoading(true)
+    const cursosRes = await supabase.from('cursos').select('id, titulo').eq('ativo', true).order('titulo')
+    setCursos(cursosRes.data ?? [])
+
     if (isAdmin) {
       const [alunosRes, comRes, assocRes] = await Promise.all([
         supabase.from('alunos').select('*, comunidades(nome), associacoes(nome, sigla)').order('nome'),
@@ -133,26 +145,11 @@ export default function MeusAlunos() {
     ? alunos.filter(a => a.comunidade_id === filtroCom)
     : alunos
 
-  const openCreate = () => {
-    setForm(emptyForm)
-    setEditId(null)
-    setError('')
-    setShowPin(false)
-    setModal(true)
-  }
-
+  // ── Cadastro / Edição ──
+  const openCreate = () => { setForm(emptyForm); setEditId(null); setError(''); setShowPin(false); setModal(true) }
   const openEdit = (a) => {
-    setForm({
-      nome: a.nome,
-      cpf: displayCPF(a.cpf, true),
-      pin: '',
-      associacao_id: a.associacao_id ?? '',
-      comunidade_id: a.comunidade_id ?? '',
-    })
-    setEditId(a.id)
-    setError('')
-    setShowPin(false)
-    setModal(true)
+    setForm({ nome: a.nome, cpf: displayCPF(a.cpf, true), pin: '', associacao_id: a.associacao_id ?? '', comunidade_id: a.comunidade_id ?? '' })
+    setEditId(a.id); setError(''); setShowPin(false); setModal(true)
   }
 
   const handleDelete = async (a) => {
@@ -162,45 +159,46 @@ export default function MeusAlunos() {
   }
 
   const handleSave = async (e) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault(); setError('')
     if (!editId && bloqueado) return
     setSaving(true)
     const cpfClean = form.cpf.replace(/\D/g, '')
-
     if (editId) {
-      const payload = {
-        nome: form.nome,
-        cpf: cpfClean,
-        associacao_id: form.associacao_id || null,
-      }
+      const payload = { nome: form.nome, cpf: cpfClean, associacao_id: form.associacao_id || null }
       if (isAdmin) payload.comunidade_id = form.comunidade_id || null
       if (form.pin) payload.pin = form.pin
       const { error: err } = await supabase.from('alunos').update(payload).eq('id', editId)
-      if (err) {
-        setError(err.code === '23505' ? 'Este CPF já está em uso por outro aluno.' : err.message)
-        setSaving(false)
-        return
-      }
+      if (err) { setError(err.code === '23505' ? 'Este CPF já está em uso.' : err.message); setSaving(false); return }
     } else {
       const { error: err } = await supabase.from('alunos').insert({
-        nome: form.nome,
-        cpf: cpfClean,
-        pin: form.pin,
+        nome: form.nome, cpf: cpfClean, pin: form.pin,
         comunidade_id: isAdmin ? (form.comunidade_id || null) : comunidadeId,
         associacao_id: form.associacao_id || null,
       })
-      if (err) {
-        setError(err.code === '23505' ? 'Este CPF já está cadastrado.' : err.message)
-        setSaving(false)
-        return
-      }
+      if (err) { setError(err.code === '23505' ? 'Este CPF já está cadastrado.' : err.message); setSaving(false); return }
     }
+    setSaving(false); setModal(false); load()
+  }
 
-    setSaving(false)
-    setModal(false)
+  // ── Inscrição em curso ──
+  const openInscrever = async (a) => {
+    setAlunoInscrever(a)
+    setCursoSelecionado('')
+    const { data } = await supabase.from('matriculas').select('curso_id').eq('aluno_id', a.id)
+    setMatAluno((data ?? []).map(m => m.curso_id))
+    setModalInscrever(true)
+  }
+
+  const handleInscrever = async () => {
+    if (!cursoSelecionado || !alunoInscrever) return
+    setInscrevendo(true)
+    await supabase.from('matriculas').insert({ aluno_id: alunoInscrever.id, curso_id: cursoSelecionado })
+    setInscrevendo(false)
+    setModalInscrever(false)
     load()
   }
+
+  const cursosDisponiveis = cursos.filter(c => !matAluno.includes(c.id))
 
   return (
     <div>
@@ -223,7 +221,6 @@ export default function MeusAlunos() {
         </div>
       </div>
 
-      {/* Semestre (só para líder) */}
       {!isAdmin && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5 flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -245,16 +242,13 @@ export default function MeusAlunos() {
         </div>
       )}
 
-      {/* Filtro por comunidade (admin) */}
       {isAdmin && comunidades.length > 0 && (
         <div className="mb-4">
           <select value={filtroCom} onChange={e => setFiltroCom(e.target.value)}
             className="border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano">
             <option value="">Todas as comunidades ({alunos.length} alunos)</option>
             {comunidades.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.nome} ({alunos.filter(a => a.comunidade_id === c.id).length} alunos)
-              </option>
+              <option key={c.id} value={c.id}>{c.nome} ({alunos.filter(a => a.comunidade_id === c.id).length} alunos)</option>
             ))}
           </select>
         </div>
@@ -282,24 +276,30 @@ export default function MeusAlunos() {
                       <p className="text-xs text-oceano mt-0.5 font-medium">{a.comunidades.nome}</p>
                     )}
                   </div>
-                  {isAdmin && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button onClick={() => openEdit(a)} title="Editar"
-                        className="p-1.5 text-oceano hover:bg-oceano/10 rounded-lg transition-colors">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(a)} title="Excluir"
-                        className="p-1.5 text-laranja hover:bg-laranja/10 rounded-lg transition-colors">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => openInscrever(a)} title="Inscrever em curso"
+                      className="p-1.5 text-verde hover:bg-verde/10 rounded-lg transition-colors">
+                      <BookMarked size={14} />
+                    </button>
+                    {isAdmin && (
+                      <>
+                        <button onClick={() => openEdit(a)} title="Editar"
+                          className="p-1.5 text-oceano hover:bg-oceano/10 rounded-lg transition-colors">
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(a)} title="Excluir"
+                          className="p-1.5 text-laranja hover:bg-laranja/10 rounded-lg transition-colors">
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {badges.length > 0 && (
                   <div className="flex gap-1 mb-2 flex-wrap">
                     {badges.map(tipo => (
-                      <span key={tipo} title={BADGES[tipo]?.label ?? tipo} className="text-base cursor-help" role="img" aria-label={BADGES[tipo]?.label}>
+                      <span key={tipo} title={BADGES[tipo]?.label ?? tipo} className="text-base cursor-help">
                         {BADGES[tipo]?.emoji ?? '🏅'}
                       </span>
                     ))}
@@ -307,7 +307,7 @@ export default function MeusAlunos() {
                 )}
 
                 {mats.length === 0 ? (
-                  <p className="text-xs text-gray-300 italic">Nenhum curso iniciado</p>
+                  <p className="text-xs text-gray-300 italic">Nenhum curso inscrito</p>
                 ) : (
                   <div className="space-y-1">
                     {mats.map(m => (
@@ -327,6 +327,7 @@ export default function MeusAlunos() {
         </div>
       )}
 
+      {/* Modal cadastro / edição */}
       {modal && (
         <Modal title={editId ? 'Editar Aluno' : 'Novo Aluno'} onClose={() => setModal(false)}>
           <form onSubmit={handleSave} className="space-y-4">
@@ -341,20 +342,17 @@ export default function MeusAlunos() {
                 required className={inputCls} placeholder="000.000.000-00" />
             </div>
             <div>
-              <label className={labelCls}>
-                PIN de acesso {editId ? '(deixe em branco para manter o atual)' : '*'}
-              </label>
+              <label className={labelCls}>PIN {editId ? '(em branco = manter atual)' : '*'}</label>
               <div className="relative">
                 <input type={showPin ? 'text' : 'password'} value={form.pin}
                   onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
                   required={!editId} maxLength={10} className={`${inputCls} pr-10`}
-                  placeholder={editId ? 'Novo PIN (opcional)' : 'Crie um PIN para o aluno'} />
+                  placeholder={editId ? 'Novo PIN (opcional)' : 'Crie um PIN'} />
                 <button type="button" onClick={() => setShowPin(v => !v)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-cinza hover:text-petroleum transition-colors">
                   {showPin ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">O aluno usará CPF + PIN para entrar.</p>
             </div>
             {isAdmin && (
               <div>
@@ -380,10 +378,49 @@ export default function MeusAlunos() {
                 className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
               <button type="submit" disabled={saving}
                 className="flex-1 bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum py-2 rounded-lg text-sm font-semibold transition-colors">
-                {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Cadastrar'}
+                {saving ? 'Salvando...' : editId ? 'Salvar' : 'Cadastrar'}
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Modal inscrição em curso */}
+      {modalInscrever && alunoInscrever && (
+        <Modal title={`Inscrever — ${alunoInscrever.nome}`} onClose={() => setModalInscrever(false)}>
+          <div className="space-y-4">
+            {cursosDisponiveis.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">Este aluno já está inscrito em todos os cursos disponíveis.</p>
+            ) : (
+              <>
+                <div>
+                  <label className={labelCls}>Selecione o curso</label>
+                  <select value={cursoSelecionado} onChange={e => setCursoSelecionado(e.target.value)} className={inputCls}>
+                    <option value="">— Escolha um curso —</option>
+                    {cursosDisponiveis.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+                  </select>
+                </div>
+                {matAluno.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg px-3 py-2">
+                    <p className="text-xs text-gray-400 mb-1">Já inscrito em:</p>
+                    {cursos.filter(c => matAluno.includes(c.id)).map(c => (
+                      <p key={c.id} className="text-xs text-petroleum font-medium">• {c.titulo}</p>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setModalInscrever(false)}
+                className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
+              {cursosDisponiveis.length > 0 && (
+                <button onClick={handleInscrever} disabled={!cursoSelecionado || inscrevendo}
+                  className="flex-1 bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum py-2 rounded-lg text-sm font-semibold transition-colors">
+                  {inscrevendo ? 'Inscrevendo...' : 'Inscrever'}
+                </button>
+              )}
+            </div>
+          </div>
         </Modal>
       )}
     </div>

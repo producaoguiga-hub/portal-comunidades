@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { ChevronLeft, CheckCircle, LogOut, GraduationCap, Award, Download, Lock, FileText } from 'lucide-react'
+import { ChevronLeft, CheckCircle, LogOut, GraduationCap, Award, Download, Lock, FileText, Play } from 'lucide-react'
 
 const NOTA_MINIMA = 0.7
 
@@ -25,26 +25,25 @@ function MediaPlayer({ aula }) {
 
   if (tipo === 'pdf') {
     return (
-      <div className="mt-3 rounded-lg overflow-hidden border border-gray-100">
-        <iframe src={aula.video_url} className="w-full rounded-lg" style={{ height: '520px' }}
+      <div className="rounded-xl overflow-hidden border border-gray-100 mt-4">
+        <iframe src={aula.video_url} className="w-full" style={{ height: '65vh' }}
           title={aula.titulo} />
       </div>
     )
   }
   if (tipo === 'video') {
     return (
-      <div className="mt-3">
-        <video controls src={aula.video_url} className="w-full rounded-lg" style={{ maxHeight: '420px' }}>
+      <div className="mt-4">
+        <video controls src={aula.video_url} className="w-full rounded-xl" style={{ maxHeight: '60vh' }}>
           Seu navegador não suporta este formato de vídeo.
         </video>
       </div>
     )
   }
-  // youtube (default)
   const embedUrl = getEmbedUrl(aula.video_url)
   if (!embedUrl) return null
   return (
-    <div className="mt-3 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
+    <div className="mt-4 rounded-xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
       <iframe src={embedUrl} className="w-full h-full"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen title={aula.titulo} />
@@ -103,6 +102,7 @@ export default function PortalAluno() {
   const [cursoAtual, setCursoAtual] = useState(null)
   const [aulas, setAulas] = useState([])
   const [progresso, setProgresso] = useState(new Set())
+  const [aulaAtiva, setAulaAtiva] = useState(null)
 
   const [questoes, setQuestoes] = useState([])
   const [respostas, setRespostas] = useState({})
@@ -114,14 +114,14 @@ export default function PortalAluno() {
 
   const load = async () => {
     setLoading(true)
-    const [cursosRes, matriculasRes, certsRes, conquRes] = await Promise.all([
-      supabase.from('cursos').select('*').eq('ativo', true).order('created_at', { ascending: false }),
-      supabase.from('matriculas').select('*').eq('aluno_id', alunoSession.alunoId),
+    const [matsRes, certsRes, conquRes] = await Promise.all([
+      supabase.from('matriculas').select('*, cursos(*)').eq('aluno_id', alunoSession.alunoId),
       supabase.from('certificados').select('*, cursos(titulo)').eq('aluno_id', alunoSession.alunoId),
       supabase.from('conquistas').select('*').eq('aluno_id', alunoSession.alunoId),
     ])
-    setCursos(cursosRes.data ?? [])
-    setMatriculas(matriculasRes.data ?? [])
+    const mats = matsRes.data ?? []
+    setMatriculas(mats)
+    setCursos(mats.map(m => m.cursos).filter(Boolean))
     setCertificados(certsRes.data ?? [])
     setConquistasList(conquRes.data ?? [])
     setLoading(false)
@@ -148,28 +148,29 @@ export default function PortalAluno() {
     setRespostas({})
     setResultado(null)
 
-    const { data: aulasData } = await supabase.from('aulas').select('*').eq('curso_id', curso.id).order('ordem')
-    setAulas(aulasData ?? [])
+    const [aulasRes, progRes] = await Promise.all([
+      supabase.from('aulas').select('*').eq('curso_id', curso.id).order('ordem'),
+      supabase.from('progresso_aulas').select('aula_id').eq('aluno_id', alunoSession.alunoId),
+    ])
+    const aulasList = aulasRes.data ?? []
+    const progressoSet = new Set((progRes.data ?? []).map(p => p.aula_id))
+    setAulas(aulasList)
+    setProgresso(progressoSet)
 
-    const mat = matriculas.find(m => m.curso_id === curso.id)
-    if (!mat) {
-      const { data: newMat } = await supabase.from('matriculas')
-        .insert({ aluno_id: alunoSession.alunoId, curso_id: curso.id })
-        .select().single()
-      if (newMat) setMatriculas(prev => [...prev, newMat])
-    }
-
-    const { data: progData } = await supabase.from('progresso_aulas')
-      .select('aula_id').eq('aluno_id', alunoSession.alunoId)
-    setProgresso(new Set((progData ?? []).map(p => p.aula_id)))
+    const firstIncomplete = aulasList.find(a => !progressoSet.has(a.id))
+    setAulaAtiva(firstIncomplete ?? (aulasList.length > 0 ? aulasList[aulasList.length - 1] : null))
   }
 
   const concluirAula = async (aulaId) => {
     if (progresso.has(aulaId)) return
     const isFirst = progresso.size === 0
     await supabase.from('progresso_aulas').insert({ aluno_id: alunoSession.alunoId, aula_id: aulaId })
-    setProgresso(prev => new Set([...prev, aulaId]))
+    const newProgresso = new Set([...progresso, aulaId])
+    setProgresso(newProgresso)
     if (isFirst) await ganharBadge('primeiro_passo')
+
+    const currentIdx = aulas.findIndex(a => a.id === aulaId)
+    if (currentIdx < aulas.length - 1) setAulaAtiva(aulas[currentIdx + 1])
   }
 
   const abrirQuiz = async () => {
@@ -182,7 +183,6 @@ export default function PortalAluno() {
   const submeterQuiz = async () => {
     if (questoes.length === 0) return
     setSubmitting(true)
-
     let acertos = 0
     for (const q of questoes) {
       if (respostas[q.id] === q.resposta_correta) acertos++
@@ -212,11 +212,8 @@ export default function PortalAluno() {
         .eq('aluno_id', alunoSession.alunoId).eq('curso_id', cursoAtual.id)
       setMatriculas(prev => prev.map(m => m.curso_id === cursoAtual.id ? { ...m, status: 'concluido' } : m))
 
-      // Nota Perfeita
       if (nota === 1) await ganharBadge('nota_perfeita')
-      // Graduado — primeiro certificado
       if (certsAtualizados.length === 1) await ganharBadge('graduado')
-      // Maratonista — 3 certificados
       if (certsAtualizados.length >= 3) await ganharBadge('maratonista')
     }
 
@@ -240,17 +237,28 @@ export default function PortalAluno() {
         aluno={alunoSession}
         curso={cursoAtual ?? certAtual.cursos}
         cert={certAtual}
-        onVoltar={() => setView(resultado ? 'resultado' : 'home')}
+        onVoltar={() => setView(resultado ? 'resultado' : cursoAtual ? 'curso' : 'home')}
       />
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+
       {/* Header */}
-      <header className="bg-petroleum shadow-sm sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center gap-4">
+      <header className="bg-petroleum shadow-sm z-40 shrink-0">
+        <div className="px-6 py-3 flex items-center gap-4">
           <img src="/logo-colorida.png" alt="Logo" className="h-10 object-contain" />
+          {view === 'curso' && cursoAtual && (
+            <div className="flex items-center gap-2 text-white/50">
+              <ChevronLeft size={14} />
+              <button onClick={() => setView('home')} className="text-xs text-white/50 hover:text-verde transition-colors font-medium">
+                Meus Cursos
+              </button>
+              <ChevronLeft size={14} className="rotate-180" />
+              <span className="text-xs text-white/80 font-semibold truncate max-w-xs">{cursoAtual.titulo}</span>
+            </div>
+          )}
           <div className="flex-1" />
           <div className="text-right mr-2">
             <p className="text-white/90 text-sm font-semibold leading-none">{alunoSession.alunoNome}</p>
@@ -263,9 +271,9 @@ export default function PortalAluno() {
         </div>
       </header>
 
-      {/* Toast nova conquista */}
+      {/* Toast conquista */}
       {novaBadge && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-petroleum text-white px-4 py-3 rounded-xl shadow-2xl border border-verde/30">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-petroleum text-white px-4 py-3 rounded-xl shadow-2xl border border-verde/30 animate-fade-in">
           <span className="text-3xl">{novaBadge.emoji}</span>
           <div>
             <p className="text-xs font-semibold text-verde leading-none mb-0.5">Nova conquista!</p>
@@ -275,126 +283,83 @@ export default function PortalAluno() {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      {/* ── CURSO: split layout ── */}
+      {view === 'curso' && cursoAtual && (
+        <div className="flex flex-1 overflow-hidden">
 
-        {/* ── HOME ── */}
-        {view === 'home' && (
-          <>
-            <div className="mb-6 flex items-center gap-3">
-              <div className="w-1 h-7 bg-verde rounded-full" />
-              <div>
-                <h1 className="text-xl font-bold text-petroleum">Meus Cursos</h1>
-                <p className="text-gray-400 text-sm">Escolha um curso para começar</p>
-              </div>
-            </div>
-
-            {/* Conquistas */}
-            {conquistasList.length > 0 && (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
-                <p className="text-xs font-bold text-petroleum/60 uppercase tracking-wide mb-3">Minhas Conquistas</p>
-                <div className="flex flex-wrap gap-2">
-                  {conquistasList.map(c => {
-                    const b = BADGES[c.tipo]
-                    if (!b) return null
-                    return (
-                      <div key={c.id} className="flex items-center gap-2 px-3 py-2 bg-petroleum/5 border border-gray-100 rounded-xl">
-                        <span className="text-xl">{b.emoji}</span>
-                        <div>
-                          <p className="text-xs font-bold text-petroleum leading-tight">{b.label}</p>
-                          <p className="text-xs text-gray-400">{b.desc}</p>
-                        </div>
-                      </div>
-                    )
-                  })}
+          {/* LEFT: Content */}
+          <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
+            {aulaAtiva ? (
+              <div className="max-w-3xl">
+                <div className="flex items-center gap-2 mb-1">
+                  {aulaAtiva.tipo === 'pdf' && (
+                    <span className="flex items-center gap-1 text-xs bg-orange-100 text-orange-500 px-2 py-0.5 rounded font-medium">
+                      <FileText size={10} /> PDF
+                    </span>
+                  )}
+                  {aulaAtiva.tipo === 'video' && (
+                    <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-500 px-2 py-0.5 rounded font-medium">
+                      <Play size={10} /> Vídeo
+                    </span>
+                  )}
+                  {(!aulaAtiva.tipo || aulaAtiva.tipo === 'youtube') && (
+                    <span className="flex items-center gap-1 text-xs bg-red-100 text-red-500 px-2 py-0.5 rounded font-medium">
+                      <Play size={10} /> YouTube
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-300">Aula {aulas.findIndex(a => a.id === aulaAtiva.id) + 1}</span>
                 </div>
-              </div>
-            )}
 
-            {/* Certificados */}
-            {certificados.length > 0 && (
-              <div className="bg-white rounded-xl border border-laranja/20 shadow-sm p-4 mb-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Award size={15} className="text-laranja" />
-                  <span className="text-sm font-bold text-petroleum uppercase tracking-wide">Certificados Conquistados</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {certificados.map(cert => (
-                    <button key={cert.id} onClick={() => abrirCertificado(cert, cert.cursos)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-laranja/10 hover:bg-laranja/20 border border-laranja/20 rounded-lg text-sm text-petroleum font-medium transition-colors">
-                      <Award size={13} className="text-laranja" /> {cert.cursos?.titulo}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+                <h2 className="text-2xl font-bold text-petroleum mb-1">{aulaAtiva.titulo}</h2>
+                {aulaAtiva.descricao && <p className="text-sm text-gray-500 mb-2">{aulaAtiva.descricao}</p>}
 
-            {loading ? (
-              <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
-            ) : cursos.length === 0 ? (
-              <div className="py-14 text-center text-cinza text-sm">Nenhum curso disponível no momento.</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {cursos.map(curso => {
-                  const mat = matriculas.find(m => m.curso_id === curso.id)
-                  const cert = certificados.find(c => c.curso_id === curso.id)
-                  return (
-                    <button key={curso.id} onClick={() => abrirCurso(curso)} className="text-left">
-                      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-                        {curso.thumbnail_url ? (
-                          <div className="h-32 overflow-hidden"><img src={curso.thumbnail_url} alt={curso.titulo} className="w-full h-full object-cover" /></div>
-                        ) : (
-                          <div className="h-24 bg-gradient-to-br from-oceano/20 to-verde/20 flex items-center justify-center">
-                            <GraduationCap size={32} className="text-oceano/40" />
-                          </div>
-                        )}
-                        <div className="p-4">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="font-semibold text-petroleum text-sm">{curso.titulo}</p>
-                            {cert ? (
-                              <span className="flex items-center gap-1 px-2 py-0.5 bg-laranja/15 text-laranja rounded-full text-xs font-bold shrink-0">
-                                <Award size={10} /> Certificado
-                              </span>
-                            ) : mat ? (
-                              <span className="px-2 py-0.5 bg-oceano/15 text-oceano rounded-full text-xs font-semibold shrink-0">Em andamento</span>
-                            ) : (
-                              <span className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-xs font-semibold shrink-0">Não iniciado</span>
-                            )}
-                          </div>
-                          {curso.descricao && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{curso.descricao}</p>}
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </>
-        )}
+                <MediaPlayer aula={aulaAtiva} />
 
-        {/* ── CURSO ── */}
-        {view === 'curso' && cursoAtual && (
-          <>
-            <button onClick={() => setView('home')} className="flex items-center gap-1 text-sm text-petroleum/60 hover:text-petroleum font-medium mb-4 transition-colors">
-              <ChevronLeft size={16} /> Meus Cursos
-            </button>
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <h2 className="text-xl font-bold text-petroleum">{cursoAtual.titulo}</h2>
-                {certDoCurso && (
-                  <button onClick={() => abrirCertificado(certDoCurso, cursoAtual)}
-                    className="flex items-center gap-1.5 bg-laranja/15 hover:bg-laranja/25 text-laranja px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shrink-0">
-                    <Award size={13} /> Ver Certificado
-                  </button>
-                )}
-              </div>
-              {cursoAtual.descricao && <p className="text-sm text-gray-500">{cursoAtual.descricao}</p>}
-              {aulas.length > 0 && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
-                    <span>{progresso.size} de {aulas.length} aulas concluídas</span>
-                    <span>{Math.round((progresso.size / aulas.length) * 100)}%</span>
+                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
+                  {aulaAtiva.material_url && (
+                    <a href={aulaAtiva.material_url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 text-sm text-laranja hover:text-petroleum font-medium transition-colors">
+                      <FileText size={14} /> Material complementar
+                    </a>
+                  )}
+                  <div className="ml-auto">
+                    {progresso.has(aulaAtiva.id) ? (
+                      <span className="flex items-center gap-1.5 text-sm text-verde font-semibold">
+                        <CheckCircle size={16} /> Aula concluída
+                      </span>
+                    ) : (
+                      <button onClick={() => concluirAula(aulaAtiva.id)}
+                        className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">
+                        <CheckCircle size={15} /> Marcar como concluída
+                      </button>
+                    )}
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-5xl mb-3">🎉</div>
+                  <h3 className="text-xl font-bold text-petroleum mb-1">Todas as aulas concluídas!</h3>
+                  <p className="text-gray-400 text-sm mb-4">Faça a prova na barra lateral para obter seu certificado.</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT: Sidebar */}
+          <div className="w-80 bg-white border-l border-gray-100 flex flex-col overflow-hidden shrink-0">
+
+            {/* Course header */}
+            <div className="p-4 border-b border-gray-100 shrink-0">
+              <h3 className="font-bold text-petroleum text-sm leading-tight mb-3">{cursoAtual.titulo}</h3>
+              {aulas.length > 0 && (
+                <div>
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>{progresso.size} de {aulas.length} aulas</span>
+                    <span className="font-semibold text-petroleum">{Math.round((progresso.size / aulas.length) * 100)}%</span>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-verde rounded-full transition-all duration-300"
                       style={{ width: `${(progresso.size / aulas.length) * 100}%` }} />
                   </div>
@@ -402,135 +367,241 @@ export default function PortalAluno() {
               )}
             </div>
 
-            <div className="space-y-3 mb-4">
+            {/* Aulas list */}
+            <div className="flex-1 overflow-y-auto">
               {aulas.map((aula, i) => {
                 const concluida = progresso.has(aula.id)
                 const desbloqueada = i === 0 || progresso.has(aulas[i - 1]?.id)
+                const ativa = aulaAtiva?.id === aula.id
                 const isPdf = aula.tipo === 'pdf'
+                const isVideo = aula.tipo === 'video'
+
                 return (
-                  <div key={aula.id} className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${!desbloqueada ? 'opacity-50 border-gray-100' : concluida ? 'border-verde/30' : 'border-gray-100'}`}>
-                    <div className="p-4">
-                      <div className="flex items-start gap-3">
-                        <div className={`flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${concluida ? 'bg-verde text-petroleum' : desbloqueada ? 'bg-oceano/15 text-oceano' : 'bg-gray-100 text-gray-300'}`}>
-                          {concluida ? <CheckCircle size={16} /> : desbloqueada ? <span className="text-sm font-bold">{i + 1}</span> : <Lock size={14} />}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-semibold text-petroleum text-sm">{aula.titulo}</p>
-                            {isPdf && <span className="text-xs bg-orange-100 text-orange-500 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5"><FileText size={10} /> PDF</span>}
-                          </div>
-                          {aula.descricao && <p className="text-xs text-gray-400 mt-0.5">{aula.descricao}</p>}
-                          {desbloqueada && (
-                            <div className="flex items-center gap-3 mt-2 flex-wrap">
-                              {aula.material_url && (
-                                <a href={aula.material_url} target="_blank" rel="noreferrer"
-                                  className="flex items-center gap-1 text-xs text-laranja hover:text-petroleum font-medium transition-colors">
-                                  <FileText size={12} /> Baixar Material
-                                </a>
-                              )}
-                              {!concluida ? (
-                                <button onClick={() => concluirAula(aula.id)}
-                                  className="flex items-center gap-1 text-xs bg-verde hover:bg-verde-light text-petroleum px-3 py-1 rounded-lg font-semibold transition-colors ml-auto">
-                                  <CheckCircle size={12} /> Marcar como concluída
-                                </button>
-                              ) : (
-                                <span className="text-xs text-verde font-semibold ml-auto flex items-center gap-1">
-                                  <CheckCircle size={12} /> Concluída
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {desbloqueada && <MediaPlayer aula={aula} />}
+                  <button
+                    key={aula.id}
+                    onClick={() => desbloqueada && setAulaAtiva(aula)}
+                    disabled={!desbloqueada}
+                    className={`w-full flex items-start gap-3 p-3.5 border-b border-gray-50 text-left transition-colors ${ativa ? 'bg-oceano/8 border-l-2 border-l-oceano' : ''} ${desbloqueada ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${concluida ? 'bg-verde text-petroleum' : ativa ? 'bg-oceano text-white' : desbloqueada ? 'bg-oceano/15 text-oceano' : 'bg-gray-100 text-gray-300'}`}>
+                      {concluida ? <CheckCircle size={14} /> : desbloqueada ? i + 1 : <Lock size={11} />}
                     </div>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold leading-tight ${ativa ? 'text-oceano' : concluida ? 'text-petroleum/60' : 'text-petroleum'}`}>
+                        {aula.titulo}
+                      </p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        {isPdf && <span className="text-xs text-orange-400 font-medium">PDF</span>}
+                        {isVideo && <span className="text-xs text-blue-400 font-medium">Vídeo</span>}
+                        {(!aula.tipo || aula.tipo === 'youtube') && <span className="text-xs text-red-400 font-medium">YouTube</span>}
+                        {concluida && <span className="text-xs text-verde font-medium ml-1">✓ Concluída</span>}
+                      </div>
+                    </div>
+                  </button>
                 )
               })}
             </div>
 
-            {todasAulasConcluidas && !certDoCurso && (
-              <div className="bg-oceano/10 border border-oceano/20 rounded-xl p-5 text-center">
-                <p className="text-sm text-petroleum font-semibold mb-1">Parabéns! Você concluiu todas as aulas.</p>
-                <p className="text-xs text-gray-500 mb-3">Agora faça a prova para conquistar seu certificado.</p>
-                <button onClick={abrirQuiz} className="bg-verde hover:bg-verde-light text-petroleum px-6 py-2 rounded-lg text-sm font-bold transition-colors">
-                  Fazer Prova
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── QUIZ ── */}
-        {view === 'quiz' && (
-          <>
-            <button onClick={() => setView('curso')} className="flex items-center gap-1 text-sm text-petroleum/60 hover:text-petroleum font-medium mb-4 transition-colors">
-              <ChevronLeft size={16} /> Voltar ao curso
-            </button>
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
-              <h2 className="text-lg font-bold text-petroleum mb-1">Prova — {cursoAtual?.titulo}</h2>
-              <p className="text-xs text-gray-400">Responda todas as questões e clique em Enviar. Nota mínima: 70%.</p>
-            </div>
-            <div className="space-y-4 mb-6">
-              {questoes.map((q, i) => (
-                <div key={q.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                  <p className="text-sm font-semibold text-petroleum mb-3">
-                    <span className="text-petroleum/40 mr-2">{i + 1}.</span>{q.pergunta}
-                  </p>
-                  <div className="space-y-2">
-                    {['a', 'b', 'c', 'd'].map(op => q[`opcao_${op}`] && (
-                      <button key={op} onClick={() => setRespostas(r => ({ ...r, [q.id]: op }))}
-                        className={`w-full text-left flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 text-sm transition-all ${respostas[q.id] === op ? 'border-oceano bg-oceano/10 text-petroleum font-semibold' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}>
-                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${respostas[q.id] === op ? 'bg-oceano text-white' : 'bg-gray-100 text-gray-400'}`}>
-                          {op.toUpperCase()}
-                        </span>
-                        {q[`opcao_${op}`]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button onClick={submeterQuiz}
-              disabled={submitting || Object.keys(respostas).length < questoes.length}
-              className="w-full bg-verde hover:bg-verde-light disabled:opacity-50 text-petroleum py-3 rounded-xl font-bold text-sm transition-colors shadow-sm">
-              {submitting ? 'Enviando...' : 'Enviar Respostas'}
-            </button>
-          </>
-        )}
-
-        {/* ── RESULTADO ── */}
-        {view === 'resultado' && resultado && (
-          <div className="max-w-md mx-auto text-center">
-            <div className={`rounded-2xl p-8 shadow-sm border ${resultado.aprovado ? 'bg-verde/10 border-verde/30' : 'bg-red-50 border-red-100'}`}>
-              <div className="text-6xl mb-4">{resultado.aprovado ? '🎉' : '😔'}</div>
-              <h2 className={`text-2xl font-black mb-1 ${resultado.aprovado ? 'text-petroleum' : 'text-red-500'}`}>
-                {resultado.aprovado ? 'Aprovado!' : 'Não foi dessa vez'}
-              </h2>
-              <p className={`text-sm mb-5 ${resultado.aprovado ? 'text-petroleum/70' : 'text-red-400'}`}>
-                Você acertou {resultado.acertos} de {resultado.total} questões ({Math.round(resultado.nota * 100)}%)
-              </p>
-              {resultado.aprovado ? (() => {
-                const cert = certificados.find(c => c.curso_id === cursoAtual?.id)
-                return cert ? (
-                  <button onClick={() => abrirCertificado(cert, cursoAtual)}
-                    className="flex items-center gap-2 bg-laranja hover:bg-laranja-light text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-colors mx-auto mb-3">
-                    <Award size={16} /> Ver Meu Certificado
+            {/* Bottom: actions */}
+            <div className="p-3 border-t border-gray-100 shrink-0 space-y-2">
+              {todasAulasConcluidas && !certDoCurso && (
+                <div>
+                  <p className="text-xs text-center text-gray-400 mb-2">Todas as aulas concluídas! 🎉</p>
+                  <button onClick={abrirQuiz}
+                    className="w-full bg-verde hover:bg-verde-light text-petroleum py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm">
+                    Fazer Prova Final
                   </button>
-                ) : null
-              })() : (
-                <button onClick={abrirQuiz}
-                  className="bg-oceano hover:bg-oceano/80 text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-colors mx-auto mb-3 block">
-                  Tentar Novamente
+                </div>
+              )}
+              {certDoCurso && (
+                <button onClick={() => abrirCertificado(certDoCurso, cursoAtual)}
+                  className="w-full flex items-center justify-center gap-2 bg-laranja/10 hover:bg-laranja/20 text-laranja border border-laranja/20 py-2.5 rounded-lg text-sm font-bold transition-colors">
+                  <Award size={15} /> Ver Certificado
                 </button>
               )}
-              <button onClick={() => setView('curso')} className="text-sm text-petroleum/60 hover:text-petroleum transition-colors mt-1 block mx-auto">
-                Voltar ao curso
-              </button>
+              {!todasAulasConcluidas && (
+                <p className="text-xs text-center text-gray-300 py-1">Conclua todas as aulas para desbloquear a prova</p>
+              )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* ── HOME / QUIZ / RESULTADO ── */}
+      {view !== 'curso' && (
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-5xl mx-auto px-6 py-8">
+
+            {/* HOME */}
+            {view === 'home' && (
+              <>
+                <div className="mb-6 flex items-center gap-3">
+                  <div className="w-1 h-7 bg-verde rounded-full" />
+                  <div>
+                    <h1 className="text-xl font-bold text-petroleum">Meus Cursos</h1>
+                    <p className="text-gray-400 text-sm">Cursos em que você está inscrito</p>
+                  </div>
+                </div>
+
+                {conquistasList.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
+                    <p className="text-xs font-bold text-petroleum/60 uppercase tracking-wide mb-3">Minhas Conquistas</p>
+                    <div className="flex flex-wrap gap-2">
+                      {conquistasList.map(c => {
+                        const b = BADGES[c.tipo]
+                        if (!b) return null
+                        return (
+                          <div key={c.id} className="flex items-center gap-2 px-3 py-2 bg-petroleum/5 border border-gray-100 rounded-xl">
+                            <span className="text-xl">{b.emoji}</span>
+                            <div>
+                              <p className="text-xs font-bold text-petroleum leading-tight">{b.label}</p>
+                              <p className="text-xs text-gray-400">{b.desc}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {certificados.length > 0 && (
+                  <div className="bg-white rounded-xl border border-laranja/20 shadow-sm p-4 mb-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Award size={15} className="text-laranja" />
+                      <span className="text-sm font-bold text-petroleum uppercase tracking-wide">Certificados Conquistados</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {certificados.map(cert => (
+                        <button key={cert.id} onClick={() => abrirCertificado(cert, cert.cursos)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-laranja/10 hover:bg-laranja/20 border border-laranja/20 rounded-lg text-sm text-petroleum font-medium transition-colors">
+                          <Award size={13} className="text-laranja" /> {cert.cursos?.titulo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {loading ? (
+                  <div className="py-14 text-center text-cinza text-sm">Carregando...</div>
+                ) : cursos.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <GraduationCap size={40} className="text-gray-200 mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm font-medium">Nenhum curso inscrito ainda.</p>
+                    <p className="text-gray-300 text-xs mt-1">Aguarde seu líder ou administrador inscrever você em um curso.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {cursos.map(curso => {
+                      const mat = matriculas.find(m => m.curso_id === curso.id)
+                      const cert = certificados.find(c => c.curso_id === curso.id)
+                      return (
+                        <button key={curso.id} onClick={() => abrirCurso(curso)} className="text-left">
+                          <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                            {curso.thumbnail_url ? (
+                              <div className="h-32 overflow-hidden">
+                                <img src={curso.thumbnail_url} alt={curso.titulo} className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
+                              <div className="h-24 bg-gradient-to-br from-oceano/20 to-verde/20 flex items-center justify-center">
+                                <GraduationCap size={32} className="text-oceano/40" />
+                              </div>
+                            )}
+                            <div className="p-4">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="font-semibold text-petroleum text-sm">{curso.titulo}</p>
+                                {cert ? (
+                                  <span className="flex items-center gap-1 px-2 py-0.5 bg-laranja/15 text-laranja rounded-full text-xs font-bold shrink-0">
+                                    <Award size={10} /> Certificado
+                                  </span>
+                                ) : mat?.status === 'concluido' ? (
+                                  <span className="px-2 py-0.5 bg-verde/15 text-verde rounded-full text-xs font-semibold shrink-0">Concluído</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-oceano/15 text-oceano rounded-full text-xs font-semibold shrink-0">Inscrito</span>
+                                )}
+                              </div>
+                              {curso.descricao && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{curso.descricao}</p>}
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* QUIZ */}
+            {view === 'quiz' && (
+              <>
+                <button onClick={() => setView('curso')} className="flex items-center gap-1 text-sm text-petroleum/60 hover:text-petroleum font-medium mb-4 transition-colors">
+                  <ChevronLeft size={16} /> Voltar ao curso
+                </button>
+                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
+                  <h2 className="text-lg font-bold text-petroleum mb-1">Prova — {cursoAtual?.titulo}</h2>
+                  <p className="text-xs text-gray-400">Responda todas as questões e clique em Enviar. Nota mínima: 70%.</p>
+                </div>
+                <div className="space-y-4 mb-6">
+                  {questoes.map((q, i) => (
+                    <div key={q.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                      <p className="text-sm font-semibold text-petroleum mb-3">
+                        <span className="text-petroleum/40 mr-2">{i + 1}.</span>{q.pergunta}
+                      </p>
+                      <div className="space-y-2">
+                        {['a', 'b', 'c', 'd'].map(op => q[`opcao_${op}`] && (
+                          <button key={op} onClick={() => setRespostas(r => ({ ...r, [q.id]: op }))}
+                            className={`w-full text-left flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 text-sm transition-all ${respostas[q.id] === op ? 'border-oceano bg-oceano/10 text-petroleum font-semibold' : 'border-gray-100 hover:border-gray-200 text-gray-600'}`}>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${respostas[q.id] === op ? 'bg-oceano text-white' : 'bg-gray-100 text-gray-400'}`}>
+                              {op.toUpperCase()}
+                            </span>
+                            {q[`opcao_${op}`]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={submeterQuiz}
+                  disabled={submitting || Object.keys(respostas).length < questoes.length}
+                  className="w-full bg-verde hover:bg-verde-light disabled:opacity-50 text-petroleum py-3 rounded-xl font-bold text-sm transition-colors shadow-sm">
+                  {submitting ? 'Enviando...' : 'Enviar Respostas'}
+                </button>
+              </>
+            )}
+
+            {/* RESULTADO */}
+            {view === 'resultado' && resultado && (
+              <div className="max-w-md mx-auto text-center">
+                <div className={`rounded-2xl p-8 shadow-sm border ${resultado.aprovado ? 'bg-verde/10 border-verde/30' : 'bg-red-50 border-red-100'}`}>
+                  <div className="text-6xl mb-4">{resultado.aprovado ? '🎉' : '😔'}</div>
+                  <h2 className={`text-2xl font-black mb-1 ${resultado.aprovado ? 'text-petroleum' : 'text-red-500'}`}>
+                    {resultado.aprovado ? 'Aprovado!' : 'Não foi dessa vez'}
+                  </h2>
+                  <p className={`text-sm mb-5 ${resultado.aprovado ? 'text-petroleum/70' : 'text-red-400'}`}>
+                    Você acertou {resultado.acertos} de {resultado.total} questões ({Math.round(resultado.nota * 100)}%)
+                  </p>
+                  {resultado.aprovado ? (() => {
+                    const cert = certificados.find(c => c.curso_id === cursoAtual?.id)
+                    return cert ? (
+                      <button onClick={() => abrirCertificado(cert, cursoAtual)}
+                        className="flex items-center gap-2 bg-laranja hover:bg-laranja-light text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-colors mx-auto mb-3">
+                        <Award size={16} /> Ver Meu Certificado
+                      </button>
+                    ) : null
+                  })() : (
+                    <button onClick={abrirQuiz}
+                      className="bg-oceano hover:bg-oceano/80 text-white px-6 py-2.5 rounded-lg font-bold text-sm transition-colors mx-auto mb-3 block">
+                      Tentar Novamente
+                    </button>
+                  )}
+                  <button onClick={() => setView('curso')} className="text-sm text-petroleum/60 hover:text-petroleum transition-colors mt-1 block mx-auto">
+                    Voltar ao curso
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
     </div>
   )
 }

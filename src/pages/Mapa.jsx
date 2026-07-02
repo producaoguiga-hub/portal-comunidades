@@ -37,33 +37,39 @@ const SONDA_STATUS = [
 ]
 const getSondaStatus = (id) => SONDA_STATUS.find(s => s.id === id) ?? SONDA_STATUS[0]
 
-const createSondaIcon = (status, count = 1) => {
+const createSondaIcon = (status, count = 1, hasRiscos = false, riscoColor = '#b91c1c') => {
   const { color } = getSondaStatus(status)
   const badge = count > 1
-    ? `<div style="position:absolute;top:-7px;right:-7px;background:#1f2937;color:white;border-radius:50%;width:17px;height:17px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid white;line-height:1">${count}</div>`
+    ? `<div style="position:absolute;top:-6px;right:-6px;background:#1f2937;color:white;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid white;line-height:1">${count}</div>`
+    : ''
+  const pulse = hasRiscos
+    ? `<div class="sonda-pulse-ring" style="position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:${riscoColor};z-index:0;"></div>`
     : ''
   return L.divIcon({
     className: '',
-    iconSize: [38, 48],
-    iconAnchor: [19, 48],
-    popupAnchor: [0, -50],
-    html: `<div style="position:relative;width:38px;height:48px;background:${color};border:3px solid white;border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.35);">
-      <svg width="22" height="32" viewBox="0 0 22 36" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="11" cy="3" r="2.5" fill="white"/>
-        <line x1="11" y1="3" x2="2" y2="30" stroke="white" stroke-width="2" stroke-linecap="round"/>
-        <line x1="11" y1="3" x2="20" y2="30" stroke="white" stroke-width="2" stroke-linecap="round"/>
-        <line x1="5.5" y1="14" x2="16.5" y2="14" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-        <line x1="3.5" y1="23" x2="18.5" y2="23" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-        <line x1="11" y1="3" x2="11" y2="30" stroke="white" stroke-width="1.2" stroke-dasharray="3,2.5" opacity="0.6"/>
-        <rect x="1" y="29" width="20" height="3.5" rx="1.5" fill="white" opacity="0.9"/>
-      </svg>
-      ${badge}
+    iconSize: [26, 34],
+    iconAnchor: [13, 34],
+    popupAnchor: [0, -38],
+    html: `<div style="position:relative;width:26px;height:34px;overflow:visible;">
+      ${pulse}
+      <div style="position:relative;z-index:1;width:26px;height:34px;background:${color};border:2.5px solid white;border-radius:6px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.35);">
+        <svg width="15" height="22" viewBox="0 0 22 36" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="11" cy="3" r="2.5" fill="white"/>
+          <line x1="11" y1="3" x2="2" y2="30" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="11" y1="3" x2="20" y2="30" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <line x1="5.5" y1="14" x2="16.5" y2="14" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="3.5" y1="23" x2="18.5" y2="23" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+          <line x1="11" y1="3" x2="11" y2="30" stroke="white" stroke-width="1.2" stroke-dasharray="3,2.5" opacity="0.6"/>
+          <rect x="1" y="29" width="20" height="3.5" rx="1.5" fill="white" opacity="0.9"/>
+        </svg>
+        ${badge}
+      </div>
     </div>`,
   })
 }
 
 const emptyRisco  = { comunidade_id: '', associacao_id: '', tipo: '', nivel: 'medio', descricao: '' }
-const emptySonda  = { nome: '', comunidade_id: '', associacao_id: '', operadora: '', status: 'operando', descricao: '' }
+const emptySonda  = { nome: '', comunidade_id: '', operadora: '', status: 'operando', descricao: '' }
 
 export default function Mapa() {
   const [comunidades, setComunidades] = useState([])
@@ -84,7 +90,25 @@ export default function Mapa() {
   const [saving, setSaving] = useState(false)
 
   const assocsDaComRisco = comunidades.find(c => c.id === formRisco.comunidade_id)?.associacoes ?? []
-  const assocsDaComSonda = comunidades.find(c => c.id === formSonda.comunidade_id)?.associacoes ?? []
+
+  // Injeta CSS de animação para sondas em risco
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.id = 'sonda-pulse-css'
+    style.innerHTML = `
+      @keyframes sonda-ripple {
+        0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 0.7; }
+        100% { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
+      }
+      .sonda-pulse-ring {
+        animation: sonda-ripple 1.6s ease-out infinite;
+        transform-origin: center;
+        pointer-events: none;
+      }
+    `
+    if (!document.getElementById('sonda-pulse-css')) document.head.appendChild(style)
+    return () => { const el = document.getElementById('sonda-pulse-css'); if (el) el.remove() }
+  }, [])
 
   const load = async () => {
     setLoading(true)
@@ -132,7 +156,6 @@ export default function Mapa() {
     await supabase.from('sondas').insert({
       nome: formSonda.nome,
       comunidade_id: formSonda.comunidade_id,
-      associacao_id: formSonda.associacao_id || null,
       operadora: formSonda.operadora || null,
       status: formSonda.status,
       descricao: formSonda.descricao || null,
@@ -255,8 +278,9 @@ export default function Mapa() {
                 const statusPriority = comSondas.find(s => s.status === 'paralisada')?.status
                   ?? comSondas.find(s => s.status === 'manutencao')?.status
                   ?? 'operando'
-                const icon = createSondaIcon(statusPriority, comSondas.length)
                 const riscosCom = riscosPorComunidade(comId)
+                const riscoRing = getRiscoRing(comId)
+                const icon = createSondaIcon(statusPriority, comSondas.length, riscosCom.length > 0, riscoRing ?? '#b91c1c')
                 return (
                   <Marker key={`sonda-${comId}`} position={[com.lat + 0.012, com.lng + 0.015]} icon={icon}>
                     <Popup minWidth={230}>
@@ -270,7 +294,6 @@ export default function Mapa() {
                             <p style={{ fontWeight: 700, fontSize: 12, color: '#091C28' }}>{s.nome}</p>
                             <p style={{ fontSize: 11, color: st.color, fontWeight: 600 }}>{st.label}</p>
                             {s.operadora && <p style={{ fontSize: 11, color: '#666' }}>Operadora: {s.operadora}</p>}
-                            {s.associacoes && <p style={{ fontSize: 11, color: '#666' }}>{s.associacoes.sigla ? `${s.associacoes.sigla} — ` : ''}{s.associacoes.nome}</p>}
                             {s.descricao && <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{s.descricao}</p>}
                           </div>
                         )
@@ -392,7 +415,6 @@ export default function Mapa() {
                       </div>
                     </div>
                     <p className="text-xs font-semibold text-petroleum/70">{s.comunidades?.nome ?? '—'}</p>
-                    {s.associacoes && <p className="text-xs text-oceano mt-0.5">{s.associacoes.sigla ? `${s.associacoes.sigla} — ${s.associacoes.nome}` : s.associacoes.nome}</p>}
                     {s.operadora && <p className="text-xs text-gray-400 mt-0.5">Operadora: <span className="font-medium text-petroleum">{s.operadora}</span></p>}
                     {s.descricao && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{s.descricao}</p>}
                     <div className="flex gap-1.5 mt-2">
@@ -516,15 +538,6 @@ export default function Mapa() {
                 {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </div>
-            {formSonda.comunidade_id && (
-              <div>
-                <label className={labelCls}>Associação</label>
-                <select value={formSonda.associacao_id} onChange={e => setFormSonda(f => ({ ...f, associacao_id: e.target.value }))} className={inputCls}>
-                  <option value="">— Região em geral —</option>
-                  {assocsDaComSonda.map(a => <option key={a.id} value={a.id}>{a.sigla ? `${a.sigla} — ${a.nome}` : a.nome}</option>)}
-                </select>
-              </div>
-            )}
             <div>
               <label className={labelCls}>Operadora</label>
               <input value={formSonda.operadora} onChange={e => setFormSonda(f => ({ ...f, operadora: e.target.value }))}

@@ -113,7 +113,6 @@ export default function Dashboard() {
                   <th className="text-center px-4 py-3 text-xs font-semibold text-petroleum/70 uppercase tracking-wider">Associações</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-petroleum/70 uppercase tracking-wider">Funcionários</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-petroleum/70 uppercase tracking-wider">Ações Sociais</th>
-                  <th className="text-right px-5 py-3 text-xs font-semibold text-petroleum/70 uppercase tracking-wider">Valor Solicitado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -128,9 +127,6 @@ export default function Dashboard() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold bg-verde text-petroleum">{s.acoes}</span>
-                    </td>
-                    <td className="px-5 py-3 text-right font-medium text-petroleum">
-                      {s.valor > 0 ? `R$ ${s.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
                     </td>
                   </tr>
                 ))}

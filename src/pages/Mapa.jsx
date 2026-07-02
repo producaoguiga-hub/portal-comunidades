@@ -40,6 +40,7 @@ export default function Mapa() {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState('ativo')
+  const [expandido, setExpandido] = useState(null)
 
   const assocsDaCom = comunidades.find(c => c.id === form.comunidade_id)?.associacoes ?? []
 
@@ -256,11 +257,19 @@ export default function Mapa() {
                     {r.associacoes && (
                       <p className="text-xs text-oceano mt-0.5">{r.associacoes.sigla ? `${r.associacoes.sigla} — ${r.associacoes.nome}` : r.associacoes.nome}</p>
                     )}
-                    {r.descricao && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{r.descricao}</p>}
+                    {r.descricao && (
+                      <div className="mt-1">
+                        <p className={`text-xs text-gray-500 ${expandido === r.id ? '' : 'line-clamp-2'}`}>{r.descricao}</p>
+                        <button onClick={() => setExpandido(expandido === r.id ? null : r.id)}
+                          className="text-xs text-oceano hover:text-petroleum font-medium mt-0.5 transition-colors">
+                          {expandido === r.id ? '▲ Ver menos' : '▼ Ver mais'}
+                        </button>
+                      </div>
+                    )}
                     {r.status === 'ativo' && (
                       <button onClick={() => atualizarStatus(r.id, 'mitigado')}
-                        className="flex items-center gap-1 mt-2 text-xs text-verde hover:text-petroleum font-medium transition-colors">
-                        <CheckCircle size={11} /> Marcar como mitigado
+                        className="flex items-center gap-1.5 mt-2 text-xs bg-petroleum/8 hover:bg-petroleum/15 text-petroleum px-2.5 py-1.5 rounded-lg font-semibold transition-colors w-full justify-center">
+                        <CheckCircle size={12} /> Marcar como mitigado
                       </button>
                     )}
                   </div>

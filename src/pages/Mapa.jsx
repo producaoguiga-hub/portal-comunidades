@@ -81,6 +81,8 @@ export default function Mapa() {
   const [panelTab, setPanelTab] = useState('riscos')
   const [filtroStatus, setFiltroStatus] = useState('ativo')
   const [expandido, setExpandido] = useState(null)
+  const [mitigandoId, setMitigandoId] = useState(null)
+  const [txtMitigacao, setTxtMitigacao] = useState('')
 
   // modals
   const [modalRisco, setModalRisco] = useState(false)
@@ -146,6 +148,10 @@ export default function Mapa() {
   }
   const atualizarStatusRisco = async (id, status) => {
     await supabase.from('riscos').update({ status }).eq('id', id); load()
+  }
+  const confirmarMitigacao = async (id) => {
+    await supabase.from('riscos').update({ status: 'mitigado', descricao_mitigacao: txtMitigacao || null }).eq('id', id)
+    setMitigandoId(null); setTxtMitigacao(''); load()
   }
   const excluirRisco = async (id) => {
     if (!confirm('Excluir este risco?')) return
@@ -371,7 +377,7 @@ export default function Mapa() {
                   const tp = getTipo(r.tipo)
                   const TipoIcon = tp.Icon
                   return (
-                    <div key={r.id} className={`bg-white rounded-xl border shadow-sm p-3 ${r.status === 'ativo' ? 'border-l-4' : 'border-gray-100 opacity-70'}`}
+                    <div key={r.id} className={`bg-white rounded-xl border shadow-sm p-3 ${r.status === 'ativo' ? 'border-l-4' : 'border-gray-100'}`}
                       style={r.status === 'ativo' ? { borderLeftColor: nv.ring } : {}}>
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-1.5">
@@ -394,11 +400,45 @@ export default function Mapa() {
                           </button>
                         </div>
                       )}
-                      {r.status === 'ativo' && (
-                        <button onClick={() => atualizarStatusRisco(r.id, 'mitigado')}
+                      {mitigandoId === r.id ? (
+                        <div className="mt-2">
+                          <textarea
+                            value={txtMitigacao}
+                            onChange={e => setTxtMitigacao(e.target.value)}
+                            rows={2}
+                            autoFocus
+                            placeholder="Como foi mitigado? Descreva a estratégia..."
+                            className="w-full border border-cinza rounded-lg px-2.5 py-2 text-xs text-petroleum focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent resize-none transition-shadow"
+                          />
+                          <div className="flex gap-1.5 mt-1.5">
+                            <button onClick={() => { setMitigandoId(null); setTxtMitigacao('') }}
+                              className="flex-1 text-xs py-1.5 border border-cinza text-gray-400 rounded-lg hover:text-petroleum transition-colors">
+                              Cancelar
+                            </button>
+                            <button onClick={() => confirmarMitigacao(r.id)}
+                              className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 bg-petroleum text-verde rounded-lg font-semibold transition-colors">
+                              <CheckCircle size={11} /> Confirmar
+                            </button>
+                          </div>
+                        </div>
+                      ) : r.status === 'ativo' ? (
+                        <button onClick={() => { setMitigandoId(r.id); setTxtMitigacao('') }}
                           className="flex items-center gap-1.5 mt-2 text-xs bg-petroleum/8 hover:bg-petroleum/15 text-petroleum px-2.5 py-1.5 rounded-lg font-semibold transition-colors w-full justify-center">
                           <CheckCircle size={12} /> Marcar como mitigado
                         </button>
+                      ) : r.status === 'mitigado' && (
+                        <div className="mt-2 bg-verde/10 border border-verde/25 rounded-lg px-2.5 py-2">
+                          <div className="flex items-start justify-between gap-2 mb-0.5">
+                            <p className="text-xs font-bold text-petroleum/50 uppercase tracking-wide">Estratégia de mitigação</p>
+                            <button onClick={() => { setMitigandoId(r.id); setTxtMitigacao(r.descricao_mitigacao || '') }}
+                              className="p-0.5 text-petroleum/40 hover:text-oceano transition-colors shrink-0"><Pencil size={12} /></button>
+                          </div>
+                          {r.descricao_mitigacao ? (
+                            <p className="text-xs text-petroleum/80 leading-relaxed">{r.descricao_mitigacao}</p>
+                          ) : (
+                            <p className="text-xs text-petroleum/40 italic">Nenhuma descrição adicionada</p>
+                          )}
+                        </div>
                       )}
                     </div>
                   )

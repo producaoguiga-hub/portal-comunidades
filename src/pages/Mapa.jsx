@@ -4,7 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { Plus, Leaf, Users, Heart, Shield, Wrench, HelpCircle, AlertTriangle, CheckCircle, X } from 'lucide-react'
+import { Plus, Leaf, Users, Heart, Shield, Wrench, HelpCircle, AlertTriangle, CheckCircle, X, Pencil } from 'lucide-react'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -85,8 +85,10 @@ export default function Mapa() {
   // modals
   const [modalRisco, setModalRisco] = useState(false)
   const [modalSonda, setModalSonda] = useState(false)
+  const [editSonda, setEditSonda] = useState(null)
   const [formRisco, setFormRisco] = useState(emptyRisco)
   const [formSonda, setFormSonda] = useState(emptySonda)
+  const [formEditSonda, setFormEditSonda] = useState(emptySonda)
   const [saving, setSaving] = useState(false)
 
   const assocsDaComRisco = comunidades.find(c => c.id === formRisco.comunidade_id)?.associacoes ?? []
@@ -164,6 +166,17 @@ export default function Mapa() {
   }
   const atualizarStatusSonda = async (id, status) => {
     await supabase.from('sondas').update({ status }).eq('id', id); load()
+  }
+  const handleUpdateSonda = async (e) => {
+    e.preventDefault(); setSaving(true)
+    await supabase.from('sondas').update({
+      nome: formEditSonda.nome,
+      comunidade_id: formEditSonda.comunidade_id,
+      operadora: formEditSonda.operadora || null,
+      status: formEditSonda.status,
+      descricao: formEditSonda.descricao || null,
+    }).eq('id', editSonda.id)
+    setSaving(false); setEditSonda(null); load()
   }
   const excluirSonda = async (id) => {
     if (!confirm('Excluir esta sonda?')) return
@@ -411,6 +424,8 @@ export default function Mapa() {
                       <p className="text-sm font-bold text-petroleum leading-tight">{s.nome}</p>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${st.cls}`}>{st.label}</span>
+                        <button onClick={() => { setFormEditSonda({ nome: s.nome, comunidade_id: s.comunidade_id, operadora: s.operadora ?? '', status: s.status, descricao: s.descricao ?? '' }); setEditSonda(s) }}
+                          className="p-0.5 text-gray-300 hover:text-oceano transition-colors"><Pencil size={12} /></button>
                         <button onClick={() => excluirSonda(s.id)} className="p-0.5 text-gray-200 hover:text-laranja transition-colors"><X size={12} /></button>
                       </div>
                     </div>
@@ -514,6 +529,56 @@ export default function Mapa() {
               <button type="submit" disabled={saving || !formRisco.tipo || !formRisco.comunidade_id}
                 className="flex-1 bg-laranja/90 hover:bg-laranja disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold transition-colors">
                 {saving ? 'Salvando...' : 'Cadastrar'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL EDITAR SONDA */}
+      {editSonda && (
+        <Modal title={`Editar Sonda — ${editSonda.nome}`} onClose={() => setEditSonda(null)}>
+          <form onSubmit={handleUpdateSonda} className="space-y-4">
+            <div>
+              <label className={labelCls}>Nome da Sonda *</label>
+              <input value={formEditSonda.nome} onChange={e => setFormEditSonda(f => ({ ...f, nome: e.target.value }))}
+                required className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Comunidade / Região *</label>
+              <select value={formEditSonda.comunidade_id}
+                onChange={e => setFormEditSonda(f => ({ ...f, comunidade_id: e.target.value }))}
+                required className={inputCls}>
+                <option value="">— Selecione —</option>
+                {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Operadora</label>
+              <input value={formEditSonda.operadora} onChange={e => setFormEditSonda(f => ({ ...f, operadora: e.target.value }))}
+                className={inputCls} placeholder="Ex: Petrobras, Origem Energia..." />
+            </div>
+            <div>
+              <label className={labelCls}>Status *</label>
+              <div className="grid grid-cols-3 gap-2">
+                {SONDA_STATUS.map(s => (
+                  <button key={s.id} type="button" onClick={() => setFormEditSonda(f => ({ ...f, status: s.id }))}
+                    className={`py-2 rounded-lg border-2 text-xs font-semibold transition-colors ${formEditSonda.status === s.id ? `border-transparent ${s.cls}` : 'border-gray-100 text-gray-400 hover:border-gray-200'}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Observações</label>
+              <textarea value={formEditSonda.descricao} onChange={e => setFormEditSonda(f => ({ ...f, descricao: e.target.value }))}
+                rows={3} className={`${inputCls} resize-none`} placeholder="Informações adicionais sobre a sonda..." />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={() => setEditSonda(null)} className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
+              <button type="submit" disabled={saving || !formEditSonda.nome || !formEditSonda.comunidade_id}
+                className="flex-1 bg-petroleum hover:bg-petroleum/80 disabled:opacity-50 text-verde py-2 rounded-lg text-sm font-semibold transition-colors">
+                {saving ? 'Salvando...' : 'Salvar Alterações'}
               </button>
             </div>
           </form>

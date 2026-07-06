@@ -102,9 +102,9 @@ export default function Servicos() {
     let portfolio_pdf_url = form.portfolio_pdf_url ?? null
     if (portfolioPdf) {
       const path = `${Date.now()}_${safeTipo}.pdf`
-      const { error: upErrPdf } = await supabase.storage.from('portfolios-servicos').upload(path, portfolioPdf, { upsert: true })
+      const { error: upErrPdf } = await supabase.storage.from('portfolio-servicos').upload(path, portfolioPdf, { upsert: true })
       if (!upErrPdf) {
-        const { data: urlData } = supabase.storage.from('portfolios-servicos').getPublicUrl(path)
+        const { data: urlData } = supabase.storage.from('portfolio-servicos').getPublicUrl(path)
         portfolio_pdf_url = urlData.publicUrl
       }
     }

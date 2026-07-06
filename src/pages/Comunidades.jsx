@@ -13,7 +13,7 @@ const columns = [
   { key: 'pin', label: 'PIN', render: v => <span className="font-mono font-bold text-petroleum tracking-widest">{v}</span> },
   {
     key: 'lat', label: 'Mapa', render: (_v, row) => row.lat != null && row.lng != null
-      ? <span className="text-xs font-semibold text-verde-light bg-verde/10 px-2 py-0.5 rounded-full">No mapa</span>
+      ? <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">No mapa</span>
       : <span className="text-xs font-semibold text-laranja bg-laranja/10 px-2 py-0.5 rounded-full">Sem coordenadas</span>
   },
 ]

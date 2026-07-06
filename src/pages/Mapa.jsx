@@ -4,7 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { Plus, Leaf, Users, Heart, Shield, Wrench, HelpCircle, AlertTriangle, CheckCircle, X, Pencil } from 'lucide-react'
+import { Leaf, Users, Heart, Shield, Wrench, HelpCircle, AlertTriangle, CheckCircle, X, Pencil } from 'lucide-react'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -29,107 +29,66 @@ const NIVEL_ORDER = { baixo: 1, medio: 2, alto: 3, critico: 4 }
 const getNivel = (id) => NIVEIS.find(n => n.id === id) ?? NIVEIS[0]
 const getTipo  = (id) => TIPOS.find(t => t.id === id)  ?? TIPOS[5]
 
-// ── Sondas ──
-const SONDA_STATUS = [
-  { id: 'operando',   label: 'Em Operação', cls: 'bg-verde/30 text-petroleum',  color: '#16a34a' },
-  { id: 'paralisada', label: 'Paralisada',  cls: 'bg-red-100 text-red-600',     color: '#dc2626' },
-  { id: 'manutencao', label: 'Manutenção',  cls: 'bg-blue-100 text-blue-600',   color: '#2563eb' },
-]
-const getSondaStatus = (id) => SONDA_STATUS.find(s => s.id === id) ?? SONDA_STATUS[0]
+const createPulseIcon = (color) => L.divIcon({
+  className: '',
+  iconSize: [50, 50],
+  iconAnchor: [25, 25],
+  html: `<div style="position:relative;width:50px;height:50px;">
+    <div class="risco-pulse-ring" style="position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:${color};"></div>
+  </div>`,
+})
 
-const createSondaIcon = (status, count = 1, hasRiscos = false, riscoColor = '#b91c1c') => {
-  const { color } = getSondaStatus(status)
-  const badge = count > 1
-    ? `<div style="position:absolute;top:-6px;right:-6px;background:#1f2937;color:white;border-radius:50%;width:15px;height:15px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid white;line-height:1">${count}</div>`
-    : ''
-  const pulse = hasRiscos
-    ? `<div class="sonda-pulse-ring" style="position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:${riscoColor};z-index:0;"></div>`
-    : ''
-  return L.divIcon({
-    className: '',
-    iconSize: [26, 34],
-    iconAnchor: [13, 34],
-    popupAnchor: [0, -38],
-    html: `<div style="position:relative;width:26px;height:34px;overflow:visible;">
-      ${pulse}
-      <div style="position:relative;z-index:1;width:26px;height:34px;background:${color};border:2.5px solid white;border-radius:6px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.35);">
-        <svg width="15" height="22" viewBox="0 0 22 36" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="11" cy="3" r="2.5" fill="white"/>
-          <line x1="11" y1="3" x2="2" y2="30" stroke="white" stroke-width="2" stroke-linecap="round"/>
-          <line x1="11" y1="3" x2="20" y2="30" stroke="white" stroke-width="2" stroke-linecap="round"/>
-          <line x1="5.5" y1="14" x2="16.5" y2="14" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="3.5" y1="23" x2="18.5" y2="23" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="11" y1="3" x2="11" y2="30" stroke="white" stroke-width="1.2" stroke-dasharray="3,2.5" opacity="0.6"/>
-          <rect x="1" y="29" width="20" height="3.5" rx="1.5" fill="white" opacity="0.9"/>
-        </svg>
-        ${badge}
-      </div>
-    </div>`,
-  })
-}
-
-const emptyRisco  = { comunidade_id: '', associacao_id: '', tipo: '', nivel: 'medio', descricao: '' }
-const emptySonda  = { nome: '', comunidade_id: '', operadora: '', status: 'operando', descricao: '' }
+const emptyRisco = { comunidade_id: '', associacao_id: '', tipo: '', nivel: 'medio', descricao: '' }
 
 export default function Mapa() {
   const [comunidades, setComunidades] = useState([])
   const [riscos,      setRiscos]      = useState([])
-  const [sondas,      setSondas]      = useState([])
   const [loading,     setLoading]     = useState(true)
 
   // painel
-  const [panelTab, setPanelTab] = useState('riscos')
   const [filtroStatus, setFiltroStatus] = useState('ativo')
   const [expandido, setExpandido] = useState(null)
   const [mitigandoId, setMitigandoId] = useState(null)
   const [txtMitigacao, setTxtMitigacao] = useState('')
 
-  // modals
+  // modal
   const [modalRisco, setModalRisco] = useState(false)
-  const [modalSonda, setModalSonda] = useState(false)
-  const [editSonda, setEditSonda] = useState(null)
   const [formRisco, setFormRisco] = useState(emptyRisco)
-  const [formSonda, setFormSonda] = useState(emptySonda)
-  const [formEditSonda, setFormEditSonda] = useState(emptySonda)
   const [saving, setSaving] = useState(false)
 
   const assocsDaComRisco = comunidades.find(c => c.id === formRisco.comunidade_id)?.associacoes ?? []
 
-  // Injeta CSS de animação para sondas em risco
+  // Injeta CSS de animação para riscos críticos
   useEffect(() => {
     const style = document.createElement('style')
-    style.id = 'sonda-pulse-css'
+    style.id = 'risco-pulse-css'
     style.innerHTML = `
-      @keyframes sonda-ripple {
+      @keyframes risco-ripple {
         0%   { transform: translate(-50%,-50%) scale(0.5); opacity: 0.7; }
         100% { transform: translate(-50%,-50%) scale(2.2); opacity: 0; }
       }
-      .sonda-pulse-ring {
-        animation: sonda-ripple 1.6s ease-out infinite;
+      .risco-pulse-ring {
+        animation: risco-ripple 1.6s ease-out infinite;
         transform-origin: center;
         pointer-events: none;
       }
     `
-    if (!document.getElementById('sonda-pulse-css')) document.head.appendChild(style)
-    return () => { const el = document.getElementById('sonda-pulse-css'); if (el) el.remove() }
+    if (!document.getElementById('risco-pulse-css')) document.head.appendChild(style)
+    return () => { const el = document.getElementById('risco-pulse-css'); if (el) el.remove() }
   }, [])
 
   const load = async () => {
     setLoading(true)
-    const [comRes, riscoRes, sondaRes] = await Promise.all([
+    const [comRes, riscoRes] = await Promise.all([
       supabase.from('comunidades')
         .select('id, nome, lat, lng, associacoes(id, nome, sigla, representante_legal, telefone)')
         .not('lat', 'is', null),
       supabase.from('riscos')
         .select('*, comunidades(nome), associacoes(nome, sigla)')
         .order('created_at', { ascending: false }),
-      supabase.from('sondas')
-        .select('*, comunidades(nome), associacoes(nome, sigla)')
-        .order('created_at', { ascending: false }),
     ])
     setComunidades(comRes.data ?? [])
     setRiscos(riscoRes.data ?? [])
-    setSondas(sondaRes.data ?? [])
     setLoading(false)
   }
 
@@ -146,9 +105,6 @@ export default function Mapa() {
     })
     setSaving(false); setModalRisco(false); setFormRisco(emptyRisco); load()
   }
-  const atualizarStatusRisco = async (id, status) => {
-    await supabase.from('riscos').update({ status }).eq('id', id); load()
-  }
   const confirmarMitigacao = async (id) => {
     await supabase.from('riscos').update({ status: 'mitigado', descricao_mitigacao: txtMitigacao || null }).eq('id', id)
     setMitigandoId(null); setTxtMitigacao(''); load()
@@ -158,57 +114,24 @@ export default function Mapa() {
     await supabase.from('riscos').delete().eq('id', id); load()
   }
 
-  // ── Sondas ──
-  const handleSaveSonda = async (e) => {
-    e.preventDefault(); setSaving(true)
-    await supabase.from('sondas').insert({
-      nome: formSonda.nome,
-      comunidade_id: formSonda.comunidade_id,
-      operadora: formSonda.operadora || null,
-      status: formSonda.status,
-      descricao: formSonda.descricao || null,
-    })
-    setSaving(false); setModalSonda(false); setFormSonda(emptySonda); load()
-  }
-  const atualizarStatusSonda = async (id, status) => {
-    await supabase.from('sondas').update({ status }).eq('id', id); load()
-  }
-  const handleUpdateSonda = async (e) => {
-    e.preventDefault(); setSaving(true)
-    await supabase.from('sondas').update({
-      nome: formEditSonda.nome,
-      comunidade_id: formEditSonda.comunidade_id,
-      operadora: formEditSonda.operadora || null,
-      status: formEditSonda.status,
-      descricao: formEditSonda.descricao || null,
-    }).eq('id', editSonda.id)
-    setSaving(false); setEditSonda(null); load()
-  }
-  const excluirSonda = async (id) => {
-    if (!confirm('Excluir esta sonda?')) return
-    await supabase.from('sondas').delete().eq('id', id); load()
-  }
-
   // ── Helpers do mapa ──
+  const riscosPorComunidade = (id) => riscos.filter(r => r.comunidade_id === id && r.status === 'ativo')
+
   const getRiscoRing = (comunidadeId) => {
-    const ativos = riscos.filter(r => r.comunidade_id === comunidadeId && r.status === 'ativo')
+    const ativos = riscosPorComunidade(comunidadeId)
     if (ativos.length === 0) return null
     const highest = ativos.reduce((acc, r) =>
       (NIVEL_ORDER[r.nivel] ?? 0) > (NIVEL_ORDER[acc.nivel] ?? 0) ? r : acc)
     return getNivel(highest.nivel).ring
   }
 
-  const sondasPorComunidade = sondas.reduce((acc, s) => {
-    if (!acc[s.comunidade_id]) acc[s.comunidade_id] = []
-    acc[s.comunidade_id].push(s)
-    return acc
-  }, {})
+  const temRiscoCritico = (comunidadeId) =>
+    riscosPorComunidade(comunidadeId).some(r => r.nivel === 'critico')
 
   const getColor = (count) => count >= 3 ? '#FF8F1F' : count >= 2 ? '#2ED7ED' : '#BCFF48'
   const getRadius = (count) => Math.max(8, count * 5 + 6)
 
   const riscosFiltrados = riscos.filter(r => filtroStatus === 'todos' || r.status === filtroStatus)
-  const riscosPorComunidade = (id) => riscos.filter(r => r.comunidade_id === id && r.status === 'ativo')
 
   return (
     <div>
@@ -217,17 +140,13 @@ export default function Mapa() {
           <div className="w-1 h-7 bg-oceano rounded-full" />
           <div>
             <h1 className="text-2xl font-bold text-petroleum">Mapa das Comunidades</h1>
-            <p className="text-gray-400 text-sm">Distribuição, sondas e riscos por região</p>
+            <p className="text-gray-400 text-sm">Distribuição e riscos por região</p>
           </div>
         </div>
         <div className="flex gap-2">
           <button onClick={() => { setFormRisco(emptyRisco); setModalRisco(true) }}
             className="flex items-center gap-2 bg-laranja/90 hover:bg-laranja text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
             <AlertTriangle size={14} /> Cadastrar Risco
-          </button>
-          <button onClick={() => { setFormSonda(emptySonda); setModalSonda(true) }}
-            className="flex items-center gap-2 bg-petroleum hover:bg-petroleum/80 text-verde px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
-            <Plus size={14} /> Cadastrar Sonda
           </button>
         </div>
       </div>
@@ -244,6 +163,11 @@ export default function Mapa() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
               />
+
+              {/* Pulso de destaque para riscos críticos ativos, abaixo do marcador da comunidade */}
+              {comunidades.filter(c => temRiscoCritico(c.id)).map(c => (
+                <Marker key={`pulse-${c.id}`} position={[c.lat, c.lng]} icon={createPulseIcon(getNivel('critico').ring)} interactive={false} />
+              ))}
 
               {/* Comunidades */}
               {comunidades.map(c => {
@@ -289,51 +213,6 @@ export default function Mapa() {
                   </CircleMarker>
                 )
               })}
-
-              {/* Sondas — um marcador por comunidade com sonda, levemente deslocado */}
-              {Object.entries(sondasPorComunidade).map(([comId, comSondas]) => {
-                const com = comunidades.find(c => c.id === comId)
-                if (!com) return null
-                const statusPriority = comSondas.find(s => s.status === 'paralisada')?.status
-                  ?? comSondas.find(s => s.status === 'manutencao')?.status
-                  ?? 'operando'
-                const riscosCom = riscosPorComunidade(comId)
-                const riscoRing = getRiscoRing(comId)
-                const icon = createSondaIcon(statusPriority, comSondas.length, riscosCom.length > 0, riscoRing ?? '#b91c1c')
-                return (
-                  <Marker key={`sonda-${comId}`} position={[com.lat + 0.012, com.lng + 0.015]} icon={icon}>
-                    <Popup minWidth={230}>
-                      <p style={{ fontWeight: 700, fontSize: 13, color: '#091C28', marginBottom: 6 }}>
-                        🛢 Sonda{comSondas.length > 1 ? 's' : ''} em {com.nome}
-                      </p>
-                      {comSondas.map(s => {
-                        const st = getSondaStatus(s.status)
-                        return (
-                          <div key={s.id} style={{ borderLeft: `3px solid ${st.color}`, paddingLeft: 8, marginBottom: 8 }}>
-                            <p style={{ fontWeight: 700, fontSize: 12, color: '#091C28' }}>{s.nome}</p>
-                            <p style={{ fontSize: 11, color: st.color, fontWeight: 600 }}>{st.label}</p>
-                            {s.operadora && <p style={{ fontSize: 11, color: '#666' }}>Operadora: {s.operadora}</p>}
-                            {s.descricao && <p style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{s.descricao}</p>}
-                          </div>
-                        )
-                      })}
-                      {riscosCom.length > 0 && (
-                        <div style={{ borderTop: '1px solid #eee', paddingTop: 6 }}>
-                          <p style={{ fontSize: 10, fontWeight: 700, color: '#b91c1c', marginBottom: 4, textTransform: 'uppercase' }}>
-                            ⚠ Riscos ativos na região
-                          </p>
-                          {riscosCom.map(r => (
-                            <div key={r.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3 }}>
-                              <span style={{ fontSize: 10, background: '#fee2e2', color: '#b91c1c', fontWeight: 700, borderRadius: 4, padding: '1px 5px' }}>{getNivel(r.nivel).label}</span>
-                              <span style={{ fontSize: 11, color: '#374151' }}>{getTipo(r.tipo).label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </Popup>
-                  </Marker>
-                )
-              })}
             </MapContainer>
           )}
         </div>
@@ -341,150 +220,100 @@ export default function Mapa() {
         {/* RIGHT PANEL */}
         <div className="w-72 flex flex-col gap-2" style={{ height: 540 }}>
 
-          {/* Tabs */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-1.5 flex gap-1 shrink-0">
-            <button onClick={() => setPanelTab('riscos')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors ${panelTab === 'riscos' ? 'bg-petroleum text-verde' : 'text-gray-400 hover:text-petroleum'}`}>
+            <div className="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-petroleum text-verde text-center">
               ⚠ Riscos ({riscos.filter(r => r.status === 'ativo').length})
-            </button>
-            <button onClick={() => setPanelTab('sondas')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors ${panelTab === 'sondas' ? 'bg-petroleum text-verde' : 'text-gray-400 hover:text-petroleum'}`}>
-              🛢 Sondas ({sondas.length})
-            </button>
+            </div>
           </div>
 
-          {/* ── RISCOS TAB ── */}
-          {panelTab === 'riscos' && (
-            <>
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2 shrink-0">
-                <div className="flex gap-1">
-                  {[{ id: 'ativo', label: 'Ativos' }, { id: 'mitigado', label: 'Mitigados' }, { id: 'todos', label: 'Todos' }].map(f => (
-                    <button key={f.id} onClick={() => setFiltroStatus(f.id)}
-                      className={`flex-1 py-1 text-xs rounded-lg font-medium transition-colors ${filtroStatus === f.id ? 'bg-petroleum text-verde' : 'text-gray-400 hover:text-petroleum'}`}>
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto space-y-2">
-                {riscosFiltrados.length === 0 ? (
-                  <div className="bg-white rounded-xl border border-gray-100 py-10 text-center">
-                    <AlertTriangle size={24} className="text-gray-200 mx-auto mb-2" />
-                    <p className="text-xs text-gray-300">Nenhum risco cadastrado</p>
-                  </div>
-                ) : riscosFiltrados.map(r => {
-                  const nv = getNivel(r.nivel)
-                  const tp = getTipo(r.tipo)
-                  const TipoIcon = tp.Icon
-                  return (
-                    <div key={r.id} className={`bg-white rounded-xl border shadow-sm p-3 ${r.status === 'ativo' ? 'border-l-4' : 'border-gray-100'}`}
-                      style={r.status === 'ativo' ? { borderLeftColor: nv.ring } : {}}>
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-1.5">
-                          <TipoIcon size={13} style={{ color: tp.color }} />
-                          <span className="text-xs font-semibold text-petroleum">{tp.label}</span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${nv.cls}`}>{nv.label}</span>
-                          <button onClick={() => excluirRisco(r.id)} className="p-0.5 text-gray-200 hover:text-laranja transition-colors"><X size={12} /></button>
-                        </div>
-                      </div>
-                      <p className="text-xs font-semibold text-petroleum/80 leading-tight">{r.comunidades?.nome ?? '—'}</p>
-                      {r.associacoes && <p className="text-xs text-oceano mt-0.5">{r.associacoes.sigla ? `${r.associacoes.sigla} — ${r.associacoes.nome}` : r.associacoes.nome}</p>}
-                      {r.descricao && (
-                        <div className="mt-1">
-                          <p className={`text-xs text-gray-500 ${expandido === r.id ? '' : 'line-clamp-2'}`}>{r.descricao}</p>
-                          <button onClick={() => setExpandido(expandido === r.id ? null : r.id)}
-                            className="text-xs text-oceano hover:text-petroleum font-medium mt-0.5 transition-colors">
-                            {expandido === r.id ? '▲ Ver menos' : '▼ Ver mais'}
-                          </button>
-                        </div>
-                      )}
-                      {mitigandoId === r.id ? (
-                        <div className="mt-2">
-                          <textarea
-                            value={txtMitigacao}
-                            onChange={e => setTxtMitigacao(e.target.value)}
-                            rows={2}
-                            autoFocus
-                            placeholder="Como foi mitigado? Descreva a estratégia..."
-                            className="w-full border border-cinza rounded-lg px-2.5 py-2 text-xs text-petroleum focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent resize-none transition-shadow"
-                          />
-                          <div className="flex gap-1.5 mt-1.5">
-                            <button onClick={() => { setMitigandoId(null); setTxtMitigacao('') }}
-                              className="flex-1 text-xs py-1.5 border border-cinza text-gray-400 rounded-lg hover:text-petroleum transition-colors">
-                              Cancelar
-                            </button>
-                            <button onClick={() => confirmarMitigacao(r.id)}
-                              className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 bg-petroleum text-verde rounded-lg font-semibold transition-colors">
-                              <CheckCircle size={11} /> Confirmar
-                            </button>
-                          </div>
-                        </div>
-                      ) : r.status === 'ativo' ? (
-                        <button onClick={() => { setMitigandoId(r.id); setTxtMitigacao('') }}
-                          className="flex items-center gap-1.5 mt-2 text-xs bg-petroleum/8 hover:bg-petroleum/15 text-petroleum px-2.5 py-1.5 rounded-lg font-semibold transition-colors w-full justify-center">
-                          <CheckCircle size={12} /> Marcar como mitigado
-                        </button>
-                      ) : r.status === 'mitigado' && (
-                        <div className="mt-2 bg-verde/10 border border-verde/25 rounded-lg px-2.5 py-2">
-                          <div className="flex items-start justify-between gap-2 mb-0.5">
-                            <p className="text-xs font-bold text-petroleum/50 uppercase tracking-wide">Estratégia de mitigação</p>
-                            <button onClick={() => { setMitigandoId(r.id); setTxtMitigacao(r.descricao_mitigacao || '') }}
-                              className="p-0.5 text-petroleum/40 hover:text-oceano transition-colors shrink-0"><Pencil size={12} /></button>
-                          </div>
-                          {r.descricao_mitigacao ? (
-                            <p className="text-xs text-petroleum/80 leading-relaxed">{r.descricao_mitigacao}</p>
-                          ) : (
-                            <p className="text-xs text-petroleum/40 italic">Nenhuma descrição adicionada</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </>
-          )}
-
-          {/* ── SONDAS TAB ── */}
-          {panelTab === 'sondas' && (
-            <div className="flex-1 overflow-y-auto space-y-2">
-              {sondas.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-100 py-10 text-center">
-                  <p className="text-2xl mb-2">🛢</p>
-                  <p className="text-xs text-gray-300">Nenhuma sonda cadastrada</p>
-                </div>
-              ) : sondas.map(s => {
-                const st = getSondaStatus(s.status)
-                return (
-                  <div key={s.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 border-l-4"
-                    style={{ borderLeftColor: st.color }}>
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-sm font-bold text-petroleum leading-tight">{s.nome}</p>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${st.cls}`}>{st.label}</span>
-                        <button onClick={() => { setFormEditSonda({ nome: s.nome, comunidade_id: s.comunidade_id, operadora: s.operadora ?? '', status: s.status, descricao: s.descricao ?? '' }); setEditSonda(s) }}
-                          className="p-0.5 text-gray-300 hover:text-oceano transition-colors"><Pencil size={12} /></button>
-                        <button onClick={() => excluirSonda(s.id)} className="p-0.5 text-gray-200 hover:text-laranja transition-colors"><X size={12} /></button>
-                      </div>
-                    </div>
-                    <p className="text-xs font-semibold text-petroleum/70">{s.comunidades?.nome ?? '—'}</p>
-                    {s.operadora && <p className="text-xs text-gray-400 mt-0.5">Operadora: <span className="font-medium text-petroleum">{s.operadora}</span></p>}
-                    {s.descricao && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{s.descricao}</p>}
-                    <div className="flex gap-1.5 mt-2">
-                      {SONDA_STATUS.filter(opt => opt.id !== s.status).map(opt => (
-                        <button key={opt.id} onClick={() => atualizarStatusSonda(s.id, opt.id)}
-                          className="flex-1 text-xs py-1 rounded-lg font-medium border border-gray-100 text-gray-400 hover:text-petroleum hover:border-gray-300 transition-colors">
-                          → {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2 shrink-0">
+            <div className="flex gap-1">
+              {[{ id: 'ativo', label: 'Ativos' }, { id: 'mitigado', label: 'Mitigados' }, { id: 'todos', label: 'Todos' }].map(f => (
+                <button key={f.id} onClick={() => setFiltroStatus(f.id)}
+                  className={`flex-1 py-1 text-xs rounded-lg font-medium transition-colors ${filtroStatus === f.id ? 'bg-petroleum text-verde' : 'text-gray-400 hover:text-petroleum'}`}>
+                  {f.label}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {riscosFiltrados.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-100 py-10 text-center">
+                <AlertTriangle size={24} className="text-gray-200 mx-auto mb-2" />
+                <p className="text-xs text-gray-300">Nenhum risco cadastrado</p>
+              </div>
+            ) : riscosFiltrados.map(r => {
+              const nv = getNivel(r.nivel)
+              const tp = getTipo(r.tipo)
+              const TipoIcon = tp.Icon
+              return (
+                <div key={r.id} className={`bg-white rounded-xl border shadow-sm p-3 ${r.status === 'ativo' ? 'border-l-4' : 'border-gray-100'}`}
+                  style={r.status === 'ativo' ? { borderLeftColor: nv.ring } : {}}>
+                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <TipoIcon size={13} style={{ color: tp.color }} />
+                      <span className="text-xs font-semibold text-petroleum">{tp.label}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${nv.cls}`}>{nv.label}</span>
+                      <button onClick={() => excluirRisco(r.id)} className="p-0.5 text-gray-200 hover:text-laranja transition-colors"><X size={12} /></button>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-petroleum/80 leading-tight">{r.comunidades?.nome ?? '—'}</p>
+                  {r.associacoes && <p className="text-xs text-oceano mt-0.5">{r.associacoes.sigla ? `${r.associacoes.sigla} — ${r.associacoes.nome}` : r.associacoes.nome}</p>}
+                  {r.descricao && (
+                    <div className="mt-1">
+                      <p className={`text-xs text-gray-500 ${expandido === r.id ? '' : 'line-clamp-2'}`}>{r.descricao}</p>
+                      <button onClick={() => setExpandido(expandido === r.id ? null : r.id)}
+                        className="text-xs text-oceano hover:text-petroleum font-medium mt-0.5 transition-colors">
+                        {expandido === r.id ? '▲ Ver menos' : '▼ Ver mais'}
+                      </button>
+                    </div>
+                  )}
+                  {mitigandoId === r.id ? (
+                    <div className="mt-2">
+                      <textarea
+                        value={txtMitigacao}
+                        onChange={e => setTxtMitigacao(e.target.value)}
+                        rows={2}
+                        autoFocus
+                        placeholder="Como foi mitigado? Descreva a estratégia..."
+                        className="w-full border border-cinza rounded-lg px-2.5 py-2 text-xs text-petroleum focus:outline-none focus:ring-2 focus:ring-verde focus:border-transparent resize-none transition-shadow"
+                      />
+                      <div className="flex gap-1.5 mt-1.5">
+                        <button onClick={() => { setMitigandoId(null); setTxtMitigacao('') }}
+                          className="flex-1 text-xs py-1.5 border border-cinza text-gray-400 rounded-lg hover:text-petroleum transition-colors">
+                          Cancelar
+                        </button>
+                        <button onClick={() => confirmarMitigacao(r.id)}
+                          className="flex-1 flex items-center justify-center gap-1 text-xs py-1.5 bg-petroleum text-verde rounded-lg font-semibold transition-colors">
+                          <CheckCircle size={11} /> Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  ) : r.status === 'ativo' ? (
+                    <button onClick={() => { setMitigandoId(r.id); setTxtMitigacao('') }}
+                      className="flex items-center gap-1.5 mt-2 text-xs bg-petroleum/8 hover:bg-petroleum/15 text-petroleum px-2.5 py-1.5 rounded-lg font-semibold transition-colors w-full justify-center">
+                      <CheckCircle size={12} /> Marcar como mitigado
+                    </button>
+                  ) : r.status === 'mitigado' && (
+                    <div className="mt-2 bg-verde/10 border border-verde/25 rounded-lg px-2.5 py-2">
+                      <div className="flex items-start justify-between gap-2 mb-0.5">
+                        <p className="text-xs font-bold text-petroleum/50 uppercase tracking-wide">Estratégia de mitigação</p>
+                        <button onClick={() => { setMitigandoId(r.id); setTxtMitigacao(r.descricao_mitigacao || '') }}
+                          className="p-0.5 text-petroleum/40 hover:text-oceano transition-colors shrink-0"><Pencil size={12} /></button>
+                      </div>
+                      {r.descricao_mitigacao ? (
+                        <p className="text-xs text-petroleum/80 leading-relaxed">{r.descricao_mitigacao}</p>
+                      ) : (
+                        <p className="text-xs text-petroleum/40 italic">Nenhuma descrição adicionada</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -503,13 +332,7 @@ export default function Mapa() {
             <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: n.ring }} />{n.label}
           </div>
         ))}
-        <div className="h-4 w-px bg-gray-200" />
-        <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">Sonda:</p>
-        {SONDA_STATUS.map(s => (
-          <div key={s.id} className="flex items-center gap-1.5 text-xs text-gray-500">
-            <div className="w-3 h-3 rounded border-2" style={{ borderColor: s.color, background: s.color + '30' }} />{s.label}
-          </div>
-        ))}
+        <span className="text-xs text-gray-400 italic">(crítico pisca no mapa)</span>
       </div>
 
       {/* MODAL RISCO */}
@@ -569,106 +392,6 @@ export default function Mapa() {
               <button type="submit" disabled={saving || !formRisco.tipo || !formRisco.comunidade_id}
                 className="flex-1 bg-laranja/90 hover:bg-laranja disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold transition-colors">
                 {saving ? 'Salvando...' : 'Cadastrar'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* MODAL EDITAR SONDA */}
-      {editSonda && (
-        <Modal title={`Editar Sonda — ${editSonda.nome}`} onClose={() => setEditSonda(null)}>
-          <form onSubmit={handleUpdateSonda} className="space-y-4">
-            <div>
-              <label className={labelCls}>Nome da Sonda *</label>
-              <input value={formEditSonda.nome} onChange={e => setFormEditSonda(f => ({ ...f, nome: e.target.value }))}
-                required className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Comunidade / Região *</label>
-              <select value={formEditSonda.comunidade_id}
-                onChange={e => setFormEditSonda(f => ({ ...f, comunidade_id: e.target.value }))}
-                required className={inputCls}>
-                <option value="">— Selecione —</option>
-                {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Operadora</label>
-              <input value={formEditSonda.operadora} onChange={e => setFormEditSonda(f => ({ ...f, operadora: e.target.value }))}
-                className={inputCls} placeholder="Ex: Petrobras, Origem Energia..." />
-            </div>
-            <div>
-              <label className={labelCls}>Status *</label>
-              <div className="grid grid-cols-3 gap-2">
-                {SONDA_STATUS.map(s => (
-                  <button key={s.id} type="button" onClick={() => setFormEditSonda(f => ({ ...f, status: s.id }))}
-                    className={`py-2 rounded-lg border-2 text-xs font-semibold transition-colors ${formEditSonda.status === s.id ? `border-transparent ${s.cls}` : 'border-gray-100 text-gray-400 hover:border-gray-200'}`}>
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>Observações</label>
-              <textarea value={formEditSonda.descricao} onChange={e => setFormEditSonda(f => ({ ...f, descricao: e.target.value }))}
-                rows={3} className={`${inputCls} resize-none`} placeholder="Informações adicionais sobre a sonda..." />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setEditSonda(null)} className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
-              <button type="submit" disabled={saving || !formEditSonda.nome || !formEditSonda.comunidade_id}
-                className="flex-1 bg-petroleum hover:bg-petroleum/80 disabled:opacity-50 text-verde py-2 rounded-lg text-sm font-semibold transition-colors">
-                {saving ? 'Salvando...' : 'Salvar Alterações'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* MODAL SONDA */}
-      {modalSonda && (
-        <Modal title="Cadastrar Sonda" onClose={() => setModalSonda(false)}>
-          <form onSubmit={handleSaveSonda} className="space-y-4">
-            <div>
-              <label className={labelCls}>Nome da Sonda *</label>
-              <input value={formSonda.nome} onChange={e => setFormSonda(f => ({ ...f, nome: e.target.value }))}
-                required className={inputCls} placeholder="Ex: Sonda Alpha, Sonda 01..." />
-            </div>
-            <div>
-              <label className={labelCls}>Comunidade / Região *</label>
-              <select value={formSonda.comunidade_id}
-                onChange={e => setFormSonda(f => ({ ...f, comunidade_id: e.target.value, associacao_id: '' }))}
-                required className={inputCls}>
-                <option value="">— Selecione —</option>
-                {comunidades.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Operadora</label>
-              <input value={formSonda.operadora} onChange={e => setFormSonda(f => ({ ...f, operadora: e.target.value }))}
-                className={inputCls} placeholder="Ex: Petrobras, Origem Energia..." />
-            </div>
-            <div>
-              <label className={labelCls}>Status *</label>
-              <div className="grid grid-cols-3 gap-2">
-                {SONDA_STATUS.map(s => (
-                  <button key={s.id} type="button" onClick={() => setFormSonda(f => ({ ...f, status: s.id }))}
-                    className={`py-2 rounded-lg border-2 text-xs font-semibold transition-colors ${formSonda.status === s.id ? `border-transparent ${s.cls}` : 'border-gray-100 text-gray-400 hover:border-gray-200'}`}>
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>Observações</label>
-              <textarea value={formSonda.descricao} onChange={e => setFormSonda(f => ({ ...f, descricao: e.target.value }))}
-                rows={3} className={`${inputCls} resize-none`} placeholder="Informações adicionais sobre a sonda..." />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setModalSonda(false)} className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
-              <button type="submit" disabled={saving || !formSonda.nome || !formSonda.comunidade_id}
-                className="flex-1 bg-petroleum hover:bg-petroleum/80 disabled:opacity-50 text-verde py-2 rounded-lg text-sm font-semibold transition-colors">
-                {saving ? 'Salvando...' : 'Cadastrar Sonda'}
               </button>
             </div>
           </form>

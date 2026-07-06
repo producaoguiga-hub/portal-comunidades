@@ -171,7 +171,7 @@ export default function Servicos() {
         <div className="flex items-center gap-3">
           <div className="w-1 h-7 bg-oceano rounded-full" />
           <div>
-            <h1 className="text-2xl font-bold text-petroleum">Serviços Comunitários</h1>
+            <h1 className="text-2xl font-bold text-petroleum">Serviços da Comunidade</h1>
             <p className="text-gray-400 text-sm">
               {isLider ? 'Gerencie os serviços disponíveis na sua comunidade' : 'Catálogo de serviços e solicitações'}
             </p>

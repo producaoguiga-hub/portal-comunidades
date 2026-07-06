@@ -4,13 +4,18 @@ import Table from '../components/Table'
 import Modal from '../components/Modal'
 import { Plus, Eye, EyeOff } from 'lucide-react'
 
-const empty = { nome: '', pin: '' }
+const empty = { nome: '', pin: '', lat: '', lng: '' }
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
 
 const columns = [
   { key: 'nome', label: 'Nome da Comunidade' },
   { key: 'pin', label: 'PIN', render: v => <span className="font-mono font-bold text-petroleum tracking-widest">{v}</span> },
+  {
+    key: 'lat', label: 'Mapa', render: (_v, row) => row.lat != null && row.lng != null
+      ? <span className="text-xs font-semibold text-verde-light bg-verde/10 px-2 py-0.5 rounded-full">No mapa</span>
+      : <span className="text-xs font-semibold text-laranja bg-laranja/10 px-2 py-0.5 rounded-full">Sem coordenadas</span>
+  },
 ]
 
 export default function Comunidades() {
@@ -32,16 +37,23 @@ export default function Comunidades() {
   useEffect(() => { load() }, [])
 
   const openCreate = () => { setForm(empty); setEditId(null); setShowPin(false); setModal(true) }
-  const openEdit = (row) => { setForm(row); setEditId(row.id); setShowPin(false); setModal(true) }
+  const openEdit = (row) => {
+    setForm({ ...row, lat: row.lat ?? '', lng: row.lng ?? '' })
+    setEditId(row.id)
+    setShowPin(false)
+    setModal(true)
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
     const { nome, pin } = form
+    const lat = form.lat === '' ? null : Number(form.lat)
+    const lng = form.lng === '' ? null : Number(form.lng)
     if (editId) {
-      await supabase.from('comunidades').update({ nome, pin }).eq('id', editId)
+      await supabase.from('comunidades').update({ nome, pin, lat, lng }).eq('id', editId)
     } else {
-      await supabase.from('comunidades').insert({ nome, pin })
+      await supabase.from('comunidades').insert({ nome, pin, lat, lng })
     }
     setSaving(false)
     setModal(false)
@@ -109,6 +121,33 @@ export default function Comunidades() {
               </div>
               <p className="text-xs text-gray-400 mt-1">Entre 4 e 10 caracteres. Compartilhe com os líderes da comunidade.</p>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Latitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.lat}
+                  onChange={e => setForm(f => ({ ...f, lat: e.target.value }))}
+                  className={inputCls}
+                  placeholder="Ex: -12.16"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Longitude</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={form.lng}
+                  onChange={e => setForm(f => ({ ...f, lng: e.target.value }))}
+                  className={inputCls}
+                  placeholder="Ex: -38.4"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 -mt-2">
+              Sem essas coordenadas a comunidade não aparece no Mapa. Encontre lat/lng abrindo o local no Google Maps, clicando com o botão direito e copiando as coordenadas.
+            </p>
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setModal(false)}
                 className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">

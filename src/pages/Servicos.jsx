@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import Modal from '../components/Modal'
-import { Plus, CheckCircle, Clock, XCircle, Wrench, ImagePlus, X } from 'lucide-react'
+import { Plus, CheckCircle, Clock, XCircle, Wrench, ImagePlus, FileText, Upload, X } from 'lucide-react'
 import WhatsAppIcon from '../components/WhatsAppIcon'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
@@ -24,7 +24,7 @@ function StatusBadge({ status }) {
   )
 }
 
-const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true, associacao_id: '', foto_url: null }
+const emptyServico = { tipo: '', descricao: '', contato: '', disponivel: true, associacao_id: '', foto_url: null, portfolio_pdf_url: null }
 const emptySolicitacao = { descricao: '', solicitante: '', unidade: '' }
 
 export default function Servicos() {
@@ -41,6 +41,7 @@ export default function Servicos() {
   const [filtroComId, setFiltroComId] = useState('')
 
   const [foto, setFoto] = useState(null)
+  const [portfolioPdf, setPortfolioPdf] = useState(null)
   const [modalServico, setModalServico] = useState(false)
   const [modalSolicitar, setModalSolicitar] = useState(false)
   const [servicoSelecionado, setServicoSelecionado] = useState(null)
@@ -72,10 +73,11 @@ export default function Servicos() {
 
   useEffect(() => { load() }, [])
 
-  const openNovoServico = () => { setForm(emptyServico); setFoto(null); setEditId(null); setModalServico(true) }
+  const openNovoServico = () => { setForm(emptyServico); setFoto(null); setPortfolioPdf(null); setEditId(null); setModalServico(true) }
   const openEditServico = (row) => {
-    setForm({ tipo: row.tipo, descricao: row.descricao ?? '', contato: row.contato ?? '', disponivel: row.disponivel ?? true, associacao_id: row.associacao_id ?? '', foto_url: row.foto_url ?? null })
+    setForm({ tipo: row.tipo, descricao: row.descricao ?? '', contato: row.contato ?? '', disponivel: row.disponivel ?? true, associacao_id: row.associacao_id ?? '', foto_url: row.foto_url ?? null, portfolio_pdf_url: row.portfolio_pdf_url ?? null })
     setFoto(null)
+    setPortfolioPdf(null)
     setEditId(row.id)
     setModalServico(true)
   }
@@ -84,15 +86,26 @@ export default function Servicos() {
     e.preventDefault()
     setSaving(true)
 
+    const safeTipo = form.tipo.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '_')
+
     let foto_url = form.foto_url ?? null
     if (foto) {
       const ext = foto.name.split('.').pop()
-      const safeTipo = form.tipo.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '_')
       const path = `${Date.now()}_${safeTipo}.${ext}`
       const { error: upErr } = await supabase.storage.from('fotos-servicos').upload(path, foto, { upsert: true })
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('fotos-servicos').getPublicUrl(path)
         foto_url = urlData.publicUrl
+      }
+    }
+
+    let portfolio_pdf_url = form.portfolio_pdf_url ?? null
+    if (portfolioPdf) {
+      const path = `${Date.now()}_${safeTipo}.pdf`
+      const { error: upErrPdf } = await supabase.storage.from('portfolios-servicos').upload(path, portfolioPdf, { upsert: true })
+      if (!upErrPdf) {
+        const { data: urlData } = supabase.storage.from('portfolios-servicos').getPublicUrl(path)
+        portfolio_pdf_url = urlData.publicUrl
       }
     }
 
@@ -103,6 +116,7 @@ export default function Servicos() {
       disponivel: form.disponivel,
       associacao_id: form.associacao_id || null,
       foto_url,
+      portfolio_pdf_url,
       comunidade_id: isLider ? liderSession.comunidadeId : null,
     }
     if (editId) {
@@ -233,6 +247,13 @@ export default function Servicos() {
                     </div>
 
                   {s.descricao && <p className="text-xs text-gray-500 leading-relaxed">{s.descricao}</p>}
+
+                  {s.portfolio_pdf_url && (
+                    <a href={s.portfolio_pdf_url} target="_blank" rel="noreferrer"
+                      className="flex items-center gap-1.5 text-xs text-oceano hover:text-petroleum font-medium transition-colors w-fit">
+                      <FileText size={13} /> Ver portfólio (PDF)
+                    </a>
+                  )}
 
                   <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
                     {s.contato ? (
@@ -366,6 +387,38 @@ export default function Servicos() {
                   <span className="text-xs text-gray-400">Clique para adicionar uma foto</span>
                   <input type="file" accept="image/*" className="hidden"
                     onChange={e => setFoto(e.target.files[0] || null)} />
+                </label>
+              )}
+            </div>
+            <div>
+              <label className={labelCls}>Portfólio em PDF</label>
+              <p className="text-xs text-gray-400 mb-2">Um catálogo, orçamento ou fotos de trabalhos já feitos, em um único PDF.</p>
+              {(portfolioPdf || form.portfolio_pdf_url) ? (
+                <div className="flex items-center justify-between gap-2 border border-cinza rounded-lg px-3 py-2.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText size={16} className="text-oceano shrink-0" />
+                    <span className="text-xs text-petroleum font-medium truncate">
+                      {portfolioPdf ? portfolioPdf.name : 'Portfólio já enviado'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!portfolioPdf && form.portfolio_pdf_url && (
+                      <a href={form.portfolio_pdf_url} target="_blank" rel="noreferrer"
+                        className="text-xs text-oceano hover:text-petroleum font-medium">Ver</a>
+                    )}
+                    <button type="button"
+                      onClick={() => { setPortfolioPdf(null); setForm(f => ({ ...f, portfolio_pdf_url: null })) }}
+                      className="text-laranja hover:text-petroleum transition-colors">
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-cinza rounded-lg cursor-pointer hover:border-oceano hover:bg-oceano/5 transition-colors">
+                  <Upload size={18} className="text-gray-300 mb-1" />
+                  <span className="text-xs text-gray-400">Clique para adicionar um PDF</span>
+                  <input type="file" accept="application/pdf" className="hidden"
+                    onChange={e => setPortfolioPdf(e.target.files[0] || null)} />
                 </label>
               )}
             </div>

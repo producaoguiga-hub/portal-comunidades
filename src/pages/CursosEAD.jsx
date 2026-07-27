@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
-import { Plus, BookOpen, Play, FileText, ChevronLeft, Edit2, Trash2, GraduationCap, CheckCircle, Users, HelpCircle } from 'lucide-react'
+import { Plus, BookOpen, Play, FileText, ChevronLeft, Edit2, Trash2, GraduationCap, CheckCircle, Users, HelpCircle, Layers, Clock } from 'lucide-react'
 
 const inputCls = 'w-full border border-cinza rounded-lg px-3 py-2 text-sm text-petroleum focus:outline-none focus:ring-2 focus:ring-oceano focus:border-transparent transition-shadow'
 const labelCls = 'block text-xs font-semibold text-petroleum/70 uppercase tracking-wide mb-1'
@@ -13,11 +13,40 @@ const TIPOS = [
 ]
 
 const emptyCurso = { titulo: '', descricao: '', thumbnail_url: '', ativo: true }
-const emptyAula = { titulo: '', descricao: '', video_url: '', material_url: '', ordem: 1, tipo: 'youtube' }
+const emptyAula = { titulo: '', descricao: '', video_url: '', material_url: '', ordem: 1, tipo: 'youtube', capitulo_id: '', duracao_horas: '' }
 const emptyQuestao = { pergunta: '', opcao_a: '', opcao_b: '', opcao_c: '', opcao_d: '', resposta_correta: 'a', ordem: 1 }
+const emptyCapitulo = { titulo: '', ordem: 1 }
 
 const urlPlaceholder = { youtube: 'https://youtube.com/watch?v=...', video: 'https://... (link direto MP4)', pdf: 'https://drive.google.com/... (PDF público)' }
 const urlLabel = { youtube: 'URL do YouTube', video: 'URL do Vídeo (MP4)', pdf: 'URL do PDF' }
+
+function AulaRow({ a, i, onEdit, onDelete, tipoInfo }) {
+  const t = tipoInfo(a.tipo)
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-start gap-4">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-oceano/15 text-oceano font-bold text-sm shrink-0">{i + 1}</div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-petroleum text-sm">{a.titulo}</p>
+        {a.descricao && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{a.descricao}</p>}
+        <div className="flex items-center gap-3 mt-1">
+          {a.video_url && (
+            <span className={`flex items-center gap-1 text-xs font-medium ${t.colorCls}`}>
+              {a.tipo === 'pdf' ? <FileText size={10} /> : <Play size={10} />} {t.label}
+            </span>
+          )}
+          {a.material_url && <span className="flex items-center gap-1 text-xs text-laranja font-medium"><FileText size={10} /> Material</span>}
+          {!!a.duracao_horas && (
+            <span className="flex items-center gap-1 text-xs text-gray-400 font-medium"><Clock size={10} /> {a.duracao_horas}h</span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button onClick={() => onEdit(a)} className="p-1.5 text-oceano hover:bg-oceano/10 rounded-lg transition-colors"><Edit2 size={14} /></button>
+        <button onClick={() => onDelete(a.id)} className="p-1.5 text-laranja hover:bg-laranja/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
+      </div>
+    </div>
+  )
+}
 
 export default function CursosEAD() {
   const [cursos, setCursos] = useState([])
@@ -34,6 +63,11 @@ export default function CursosEAD() {
   const [modalAula, setModalAula] = useState(false)
   const [formAula, setFormAula] = useState(emptyAula)
   const [editAulaId, setEditAulaId] = useState(null)
+
+  const [capitulos, setCapitulos] = useState([])
+  const [modalCapitulo, setModalCapitulo] = useState(false)
+  const [formCapitulo, setFormCapitulo] = useState(emptyCapitulo)
+  const [editCapituloId, setEditCapituloId] = useState(null)
 
   const [questoes, setQuestoes] = useState([])
   const [modalQuestao, setModalQuestao] = useState(false)
@@ -57,14 +91,16 @@ export default function CursosEAD() {
   const loadDetalhe = async (curso) => {
     setCursoDetalhe(curso)
     setDetalheTab('aulas')
-    const [aulasRes, questoesRes, inscritosRes] = await Promise.all([
+    const [aulasRes, questoesRes, inscritosRes, capitulosRes] = await Promise.all([
       supabase.from('aulas').select('*').eq('curso_id', curso.id).order('ordem'),
       supabase.from('questoes').select('*').eq('curso_id', curso.id).order('ordem'),
       supabase.from('matriculas').select('*, alunos(nome, cpf, comunidades(nome))').eq('curso_id', curso.id).order('iniciado_em', { ascending: false }),
+      supabase.from('capitulos').select('*').eq('curso_id', curso.id).order('ordem'),
     ])
     setAulas(aulasRes.data ?? [])
     setQuestoes(questoesRes.data ?? [])
     setInscritos(inscritosRes.data ?? [])
+    setCapitulos(capitulosRes.data ?? [])
   }
 
   useEffect(() => { loadCursos() }, [])
@@ -92,14 +128,20 @@ export default function CursosEAD() {
     if (cursoDetalhe?.id === curso.id) setCursoDetalhe(prev => ({ ...prev, ativo: !prev.ativo }))
   }
 
-  const openCriarAula = () => { setFormAula({ ...emptyAula, ordem: aulas.length + 1 }); setEditAulaId(null); setModalAula(true) }
+  const openCriarAula = (capituloId = '') => { setFormAula({ ...emptyAula, ordem: aulas.length + 1, capitulo_id: capituloId }); setEditAulaId(null); setModalAula(true) }
   const openEditAula = (a) => {
-    setFormAula({ titulo: a.titulo, descricao: a.descricao ?? '', video_url: a.video_url ?? '', material_url: a.material_url ?? '', ordem: a.ordem, tipo: a.tipo || 'youtube' })
+    setFormAula({ titulo: a.titulo, descricao: a.descricao ?? '', video_url: a.video_url ?? '', material_url: a.material_url ?? '', ordem: a.ordem, tipo: a.tipo || 'youtube', capitulo_id: a.capitulo_id ?? '', duracao_horas: a.duracao_horas ?? '' })
     setEditAulaId(a.id); setModalAula(true)
   }
   const handleSaveAula = async (e) => {
     e.preventDefault(); setSaving(true)
-    const payload = { curso_id: cursoDetalhe.id, titulo: formAula.titulo, descricao: formAula.descricao || null, video_url: formAula.video_url || null, material_url: formAula.material_url || null, ordem: Number(formAula.ordem), tipo: formAula.tipo }
+    const payload = {
+      curso_id: cursoDetalhe.id, titulo: formAula.titulo, descricao: formAula.descricao || null,
+      video_url: formAula.video_url || null, material_url: formAula.material_url || null,
+      ordem: Number(formAula.ordem), tipo: formAula.tipo,
+      capitulo_id: formAula.capitulo_id || null,
+      duracao_horas: formAula.duracao_horas === '' ? 0 : Number(formAula.duracao_horas),
+    }
     if (editAulaId) await supabase.from('aulas').update(payload).eq('id', editAulaId)
     else await supabase.from('aulas').insert(payload)
     setSaving(false); setModalAula(false)
@@ -109,6 +151,24 @@ export default function CursosEAD() {
   const handleDeleteAula = async (id) => {
     if (!confirm('Excluir aula?')) return
     await supabase.from('aulas').delete().eq('id', id); setAulas(prev => prev.filter(a => a.id !== id))
+  }
+
+  const openCriarCapitulo = () => { setFormCapitulo({ titulo: '', ordem: capitulos.length + 1 }); setEditCapituloId(null); setModalCapitulo(true) }
+  const openEditCapitulo = (c) => { setFormCapitulo({ titulo: c.titulo, ordem: c.ordem }); setEditCapituloId(c.id); setModalCapitulo(true) }
+  const handleSaveCapitulo = async (e) => {
+    e.preventDefault(); setSaving(true)
+    const payload = { curso_id: cursoDetalhe.id, titulo: formCapitulo.titulo, ordem: Number(formCapitulo.ordem) }
+    if (editCapituloId) await supabase.from('capitulos').update(payload).eq('id', editCapituloId)
+    else await supabase.from('capitulos').insert(payload)
+    setSaving(false); setModalCapitulo(false)
+    const { data } = await supabase.from('capitulos').select('*').eq('curso_id', cursoDetalhe.id).order('ordem')
+    setCapitulos(data ?? [])
+  }
+  const handleDeleteCapitulo = async (id) => {
+    if (!confirm('Excluir capítulo? As aulas dele ficam sem capítulo, mas não são excluídas.')) return
+    await supabase.from('capitulos').delete().eq('id', id)
+    setCapitulos(prev => prev.filter(c => c.id !== id))
+    setAulas(prev => prev.map(a => a.capitulo_id === id ? { ...a, capitulo_id: null } : a))
   }
 
   const openCriarQuestao = () => { setFormQuestao({ ...emptyQuestao, ordem: questoes.length + 1 }); setEditQuestaoId(null); setModalQuestao(true) }
@@ -193,39 +253,58 @@ export default function CursosEAD() {
 
         {detalheTab === 'aulas' && (
           <div>
-            <div className="flex justify-end mb-3">
-              <button onClick={openCriarAula} className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
+            <div className="flex justify-end gap-2 mb-3">
+              <button onClick={openCriarCapitulo} className="flex items-center gap-2 border-2 border-oceano text-oceano hover:bg-oceano/10 px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                <Layers size={14} /> Novo Capítulo
+              </button>
+              <button onClick={() => openCriarAula()} className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm">
                 <Plus size={14} /> Nova Aula
               </button>
             </div>
-            {aulas.length === 0 ? (
+
+            {aulas.length === 0 && capitulos.length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-100 py-14 text-center text-cinza text-sm">Nenhuma aula cadastrada ainda.</div>
             ) : (
-              <div className="space-y-2">
-                {aulas.map((a, i) => {
-                  const t = tipoInfo(a.tipo)
+              <div className="space-y-5">
+                {capitulos.map(cap => {
+                  const aulasDoCapitulo = aulas.filter(a => a.capitulo_id === cap.id)
                   return (
-                    <div key={a.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-start gap-4">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-oceano/15 text-oceano font-bold text-sm shrink-0">{i + 1}</div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-petroleum text-sm">{a.titulo}</p>
-                        {a.descricao && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{a.descricao}</p>}
-                        <div className="flex items-center gap-3 mt-1">
-                          {a.video_url && (
-                            <span className={`flex items-center gap-1 text-xs font-medium ${t.colorCls}`}>
-                              {a.tipo === 'pdf' ? <FileText size={10} /> : <Play size={10} />} {t.label}
-                            </span>
-                          )}
-                          {a.material_url && <span className="flex items-center gap-1 text-xs text-laranja font-medium"><FileText size={10} /> Material</span>}
+                    <div key={cap.id}>
+                      <div className="flex items-center justify-between gap-2 mb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <Layers size={14} className="text-oceano" />
+                          <h4 className="font-bold text-petroleum text-sm">{cap.titulo}</h4>
+                          <span className="text-xs text-gray-400">{aulasDoCapitulo.length} aula{aulasDoCapitulo.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openCriarAula(cap.id)} className="text-xs text-verde-light font-semibold hover:text-petroleum transition-colors px-2 py-1">+ Aula</button>
+                          <button onClick={() => openEditCapitulo(cap)} className="p-1.5 text-oceano hover:bg-oceano/10 rounded-lg transition-colors"><Edit2 size={13} /></button>
+                          <button onClick={() => handleDeleteCapitulo(cap.id)} className="p-1.5 text-laranja hover:bg-laranja/10 rounded-lg transition-colors"><Trash2 size={13} /></button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => openEditAula(a)} className="p-1.5 text-oceano hover:bg-oceano/10 rounded-lg transition-colors"><Edit2 size={14} /></button>
-                        <button onClick={() => handleDeleteAula(a.id)} className="p-1.5 text-laranja hover:bg-laranja/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
-                      </div>
+                      {aulasDoCapitulo.length === 0 ? (
+                        <div className="bg-white rounded-xl border border-dashed border-gray-200 py-6 text-center text-cinza text-xs">Nenhuma aula neste capítulo ainda.</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {aulasDoCapitulo.map((a, i) => <AulaRow key={a.id} a={a} i={i} onEdit={openEditAula} onDelete={handleDeleteAula} tipoInfo={tipoInfo} />)}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
+
+                {(() => {
+                  const semCapitulo = aulas.filter(a => !a.capitulo_id)
+                  if (semCapitulo.length === 0) return null
+                  return (
+                    <div>
+                      {capitulos.length > 0 && <h4 className="font-bold text-gray-400 text-sm mb-2 px-1">Sem capítulo</h4>}
+                      <div className="space-y-2">
+                        {semCapitulo.map((a, i) => <AulaRow key={a.id} a={a} i={i} onEdit={openEditAula} onDelete={handleDeleteAula} tipoInfo={tipoInfo} />)}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )}
           </div>
@@ -376,12 +455,48 @@ export default function CursosEAD() {
                 <input value={formAula.material_url} onChange={e => setFormAula(f => ({ ...f, material_url: e.target.value }))}
                   className={inputCls} placeholder="https://drive.google.com/..." />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Capítulo</label>
+                  <select value={formAula.capitulo_id} onChange={e => setFormAula(f => ({ ...f, capitulo_id: e.target.value }))} className={inputCls}>
+                    <option value="">— Sem capítulo —</option>
+                    {capitulos.map(c => <option key={c.id} value={c.id}>{c.titulo}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Carga horária (h)</label>
+                  <input type="number" min={0} step="0.5" value={formAula.duracao_horas}
+                    onChange={e => setFormAula(f => ({ ...f, duracao_horas: e.target.value }))} className={inputCls} placeholder="Ex: 1.5" />
+                </div>
+              </div>
               <div>
                 <label className={labelCls}>Ordem</label>
                 <input type="number" min={1} value={formAula.ordem} onChange={e => setFormAula(f => ({ ...f, ordem: e.target.value }))} className={inputCls} />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setModalAula(false)} className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
+                <button type="submit" disabled={saving} className="flex-1 bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum py-2 rounded-lg text-sm font-semibold transition-colors">
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </Modal>
+        )}
+
+        {modalCapitulo && (
+          <Modal title={editCapituloId ? 'Editar Capítulo' : 'Novo Capítulo'} onClose={() => setModalCapitulo(false)}>
+            <form onSubmit={handleSaveCapitulo} className="space-y-4">
+              <div>
+                <label className={labelCls}>Título *</label>
+                <input value={formCapitulo.titulo} onChange={e => setFormCapitulo(f => ({ ...f, titulo: e.target.value }))}
+                  required className={inputCls} placeholder="Ex: Introdução" />
+              </div>
+              <div>
+                <label className={labelCls}>Ordem</label>
+                <input type="number" min={1} value={formCapitulo.ordem} onChange={e => setFormCapitulo(f => ({ ...f, ordem: e.target.value }))} className={inputCls} />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setModalCapitulo(false)} className="flex-1 border border-cinza text-petroleum/70 py-2 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
                 <button type="submit" disabled={saving} className="flex-1 bg-verde hover:bg-verde-light disabled:opacity-60 text-petroleum py-2 rounded-lg text-sm font-semibold transition-colors">
                   {saving ? 'Salvando...' : 'Salvar'}
                 </button>

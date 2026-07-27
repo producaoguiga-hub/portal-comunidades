@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { ChevronLeft, CheckCircle, LogOut, GraduationCap, Award, Download, Lock, FileText, Play } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CheckCircle, LogOut, GraduationCap, Award, Download, Lock, FileText, Play, Layers, Clock, ChevronDown, ChevronUp, Menu } from 'lucide-react'
 
 const NOTA_MINIMA = 0.7
 
@@ -90,6 +90,97 @@ function CertificadoView({ aluno, curso, cert, onVoltar }) {
   )
 }
 
+const FILTROS_AULA = [
+  { id: 'todos', label: 'Todos' },
+  { id: 'andamento', label: 'Em andamento' },
+  { id: 'nao-iniciado', label: 'Não iniciado' },
+]
+
+function CapituloCard({ titulo, aulasGrupo, aulas, progresso, aulaAtivaId, expandido, onToggle, onSelecionarAula, filtro, onSetFiltro }) {
+  const concluidas = aulasGrupo.filter(a => progresso.has(a.id)).length
+  const total = aulasGrupo.length
+  const finalizado = total > 0 && concluidas === total
+  const pct = total > 0 ? Math.round((concluidas / total) * 100) : 0
+
+  const estadoAula = (aula) => {
+    const idx = aulas.findIndex(a => a.id === aula.id)
+    const concluida = progresso.has(aula.id)
+    const desbloqueada = idx === 0 || progresso.has(aulas[idx - 1]?.id)
+    return { idx, concluida, desbloqueada }
+  }
+
+  const aulasFiltradas = aulasGrupo.filter(aula => {
+    const { concluida, desbloqueada } = estadoAula(aula)
+    if (filtro === 'andamento') return !concluida && desbloqueada
+    if (filtro === 'nao-iniciado') return !desbloqueada
+    return true
+  })
+
+  return (
+    <div className="border-b border-gray-50 last:border-0">
+      <button onClick={onToggle} className="w-full flex items-center justify-between gap-2 px-3 py-3 text-left hover:bg-gray-50/60 transition-colors">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-petroleum leading-tight truncate">{titulo}</p>
+          {finalizado ? (
+            <span className="flex items-center gap-1 text-xs text-verde font-semibold mt-0.5">
+              <CheckCircle size={11} /> Finalizado
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400 mt-0.5">{concluidas}/{total} aulas</span>
+          )}
+        </div>
+        {expandido ? <ChevronUp size={15} className="text-gray-300 shrink-0" /> : <ChevronDown size={15} className="text-gray-300 shrink-0" />}
+      </button>
+
+      {expandido && (
+        <div className="pb-3">
+          <div className="px-3 mb-2">
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+              <div className="h-full bg-verde rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>{concluidas}/{total} aulas</span>
+              <button onClick={onToggle} className="text-oceano font-semibold hover:text-petroleum transition-colors">Recolher</button>
+            </div>
+          </div>
+
+          <div className="flex gap-1 px-3 mb-2 overflow-x-auto no-scrollbar">
+            {FILTROS_AULA.map(f => (
+              <button key={f.id} onClick={() => onSetFiltro(f.id)}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${filtro === f.id ? 'bg-petroleum text-verde' : 'bg-gray-100 text-gray-400 hover:text-petroleum'}`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {aulasFiltradas.length === 0 ? (
+            <p className="text-xs text-gray-300 px-3 py-2">Nenhuma aula nesse filtro.</p>
+          ) : (
+            aulasFiltradas.map(aula => {
+              const { idx, concluida, desbloqueada } = estadoAula(aula)
+              const ativa = aulaAtivaId === aula.id
+              return (
+                <button key={aula.id}
+                  onClick={() => desbloqueada && onSelecionarAula(aula)}
+                  disabled={!desbloqueada}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${ativa ? 'bg-oceano/8' : ''} ${desbloqueada ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${concluida ? 'bg-verde text-petroleum' : ativa ? 'bg-oceano text-white' : desbloqueada ? 'bg-oceano/15 text-oceano' : 'bg-gray-100 text-gray-300'}`}>
+                    {concluida ? <CheckCircle size={12} /> : desbloqueada ? idx + 1 : <Lock size={10} />}
+                  </div>
+                  <span className={`text-xs font-semibold flex-1 min-w-0 truncate ${ativa ? 'text-oceano' : concluida ? 'text-petroleum/60' : 'text-petroleum'}`}>
+                    {aula.titulo}
+                  </span>
+                  {concluida && <CheckCircle size={13} className="text-verde shrink-0" />}
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function PortalAluno() {
   const { alunoSession, signOut } = useAuth()
   const [view, setView] = useState('home')
@@ -101,8 +192,11 @@ export default function PortalAluno() {
 
   const [cursoAtual, setCursoAtual] = useState(null)
   const [aulas, setAulas] = useState([])
+  const [capitulos, setCapitulos] = useState([])
   const [progresso, setProgresso] = useState(new Set())
   const [aulaAtiva, setAulaAtiva] = useState(null)
+  const [capExpandidoId, setCapExpandidoId] = useState(null)
+  const [filtroPorCapitulo, setFiltroPorCapitulo] = useState({})
 
   const [questoes, setQuestoes] = useState([])
   const [respostas, setRespostas] = useState({})
@@ -147,18 +241,29 @@ export default function PortalAluno() {
     setView('curso')
     setRespostas({})
     setResultado(null)
+    setFiltroPorCapitulo({})
 
-    const [aulasRes, progRes] = await Promise.all([
+    const [aulasRes, progRes, capitulosRes] = await Promise.all([
       supabase.from('aulas').select('*').eq('curso_id', curso.id).order('ordem'),
       supabase.from('progresso_aulas').select('aula_id').eq('aluno_id', alunoSession.alunoId),
+      supabase.from('capitulos').select('*').eq('curso_id', curso.id).order('ordem'),
     ])
     const aulasList = aulasRes.data ?? []
     const progressoSet = new Set((progRes.data ?? []).map(p => p.aula_id))
     setAulas(aulasList)
     setProgresso(progressoSet)
+    setCapitulos(capitulosRes.data ?? [])
 
     const firstIncomplete = aulasList.find(a => !progressoSet.has(a.id))
-    setAulaAtiva(firstIncomplete ?? (aulasList.length > 0 ? aulasList[aulasList.length - 1] : null))
+    const ativa = firstIncomplete ?? (aulasList.length > 0 ? aulasList[aulasList.length - 1] : null)
+    setAulaAtiva(ativa)
+    setCapExpandidoId(ativa && !ativa.capitulo_id ? '__sem_capitulo__' : ativa?.capitulo_id ?? null)
+  }
+
+  const irParaAula = (aula) => {
+    if (!aula) return
+    setAulaAtiva(aula)
+    setCapExpandidoId(aula.capitulo_id ?? '__sem_capitulo__')
   }
 
   const concluirAula = async (aulaId) => {
@@ -170,7 +275,20 @@ export default function PortalAluno() {
     if (isFirst) await ganharBadge('primeiro_passo')
 
     const currentIdx = aulas.findIndex(a => a.id === aulaId)
-    if (currentIdx < aulas.length - 1) setAulaAtiva(aulas[currentIdx + 1])
+    if (currentIdx < aulas.length - 1) irParaAula(aulas[currentIdx + 1])
+  }
+
+  const avancarAula = () => {
+    if (!aulaAtiva) return
+    if (!progresso.has(aulaAtiva.id)) { concluirAula(aulaAtiva.id); return }
+    const currentIdx = aulas.findIndex(a => a.id === aulaAtiva.id)
+    if (currentIdx < aulas.length - 1) irParaAula(aulas[currentIdx + 1])
+  }
+
+  const voltarAula = () => {
+    if (!aulaAtiva) return
+    const currentIdx = aulas.findIndex(a => a.id === aulaAtiva.id)
+    if (currentIdx > 0) irParaAula(aulas[currentIdx - 1])
   }
 
   const abrirQuiz = async () => {
@@ -231,6 +349,25 @@ export default function PortalAluno() {
   const todasAulasConcluidas = aulas.length > 0 && aulas.every(a => progresso.has(a.id))
   const certDoCurso = certificados.find(c => c.curso_id === cursoAtual?.id)
 
+  const totalHoras = aulas.reduce((s, a) => s + (Number(a.duracao_horas) || 0), 0)
+  const horasConcluidas = aulas.filter(a => progresso.has(a.id)).reduce((s, a) => s + (Number(a.duracao_horas) || 0), 0)
+  const capitulosConcluidos = capitulos.filter(cap => {
+    const as = aulas.filter(a => a.capitulo_id === cap.id)
+    return as.length > 0 && as.every(a => progresso.has(a.id))
+  }).length
+  const progressoPct = totalHoras > 0
+    ? (horasConcluidas / totalHoras) * 100
+    : (aulas.length > 0 ? (progresso.size / aulas.length) * 100 : 0)
+
+  const aulasSemCapitulo = aulas.filter(a => !a.capitulo_id)
+  const gruposCapitulos = [
+    ...capitulos.map(cap => ({ id: cap.id, titulo: cap.titulo, aulasGrupo: aulas.filter(a => a.capitulo_id === cap.id) })),
+    ...(aulasSemCapitulo.length > 0 ? [{ id: '__sem_capitulo__', titulo: capitulos.length > 0 ? 'Outras aulas' : cursoAtual?.titulo ?? 'Aulas', aulasGrupo: aulasSemCapitulo }] : []),
+  ]
+  const aulaIndexAtual = aulas.findIndex(a => a.id === aulaAtiva?.id)
+
+  const setFiltroCapitulo = (capId, valor) => setFiltroPorCapitulo(prev => ({ ...prev, [capId]: valor }))
+
   if (view === 'certificado' && certAtual) {
     return (
       <CertificadoView
@@ -283,145 +420,158 @@ export default function PortalAluno() {
         </div>
       )}
 
-      {/* ── CURSO: split layout ── */}
+      {/* ── CURSO: sidebar de capítulos (esquerda) + conteúdo (direita) ── */}
       {view === 'curso' && cursoAtual && (
         <div className="flex flex-1 overflow-hidden">
 
-          {/* LEFT: Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
-            {aulaAtiva ? (
-              <div className="max-w-3xl">
-                <div className="flex items-center gap-2 mb-1">
-                  {aulaAtiva.tipo === 'pdf' && (
-                    <span className="flex items-center gap-1 text-xs bg-orange-100 text-orange-500 px-2 py-0.5 rounded font-medium">
-                      <FileText size={10} /> PDF
-                    </span>
-                  )}
-                  {aulaAtiva.tipo === 'video' && (
-                    <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-500 px-2 py-0.5 rounded font-medium">
-                      <Play size={10} /> Vídeo
-                    </span>
-                  )}
-                  {(!aulaAtiva.tipo || aulaAtiva.tipo === 'youtube') && (
-                    <span className="flex items-center gap-1 text-xs bg-red-100 text-red-500 px-2 py-0.5 rounded font-medium">
-                      <Play size={10} /> YouTube
-                    </span>
-                  )}
-                  <span className="text-xs text-gray-300">Aula {aulas.findIndex(a => a.id === aulaAtiva.id) + 1}</span>
-                </div>
-
-                <h2 className="text-2xl font-bold text-petroleum mb-1">{aulaAtiva.titulo}</h2>
-                {aulaAtiva.descricao && <p className="text-sm text-gray-500 mb-2">{aulaAtiva.descricao}</p>}
-
-                <MediaPlayer aula={aulaAtiva} />
-
-                <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
-                  {aulaAtiva.material_url && (
-                    <a href={aulaAtiva.material_url} target="_blank" rel="noreferrer"
-                      className="flex items-center gap-1.5 text-sm text-laranja hover:text-petroleum font-medium transition-colors">
-                      <FileText size={14} /> Material complementar
-                    </a>
-                  )}
-                  <div className="ml-auto">
-                    {progresso.has(aulaAtiva.id) ? (
-                      <span className="flex items-center gap-1.5 text-sm text-verde font-semibold">
-                        <CheckCircle size={16} /> Aula concluída
-                      </span>
-                    ) : (
-                      <button onClick={() => concluirAula(aulaAtiva.id)}
-                        className="flex items-center gap-2 bg-verde hover:bg-verde-light text-petroleum px-4 py-2 rounded-lg text-sm font-bold transition-colors shadow-sm">
-                        <CheckCircle size={15} /> Marcar como concluída
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="text-5xl mb-3">🎉</div>
-                  <h3 className="text-xl font-bold text-petroleum mb-1">Todas as aulas concluídas!</h3>
-                  <p className="text-gray-400 text-sm mb-4">Faça a prova na barra lateral para obter seu certificado.</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT: Sidebar */}
-          <div className="w-80 bg-white border-l border-gray-100 flex flex-col overflow-hidden shrink-0">
+          {/* LEFT: Sidebar */}
+          <div className="w-80 bg-white border-r border-gray-100 flex flex-col overflow-hidden shrink-0">
 
             {/* Course header */}
             <div className="p-4 border-b border-gray-100 shrink-0">
-              <h3 className="font-bold text-petroleum text-sm leading-tight mb-3">{cursoAtual.titulo}</h3>
-              {aulas.length > 0 && (
-                <div>
-                  <div className="flex justify-between text-xs text-gray-400 mb-1">
-                    <span>{progresso.size} de {aulas.length} aulas</span>
-                    <span className="font-semibold text-petroleum">{Math.round((progresso.size / aulas.length) * 100)}%</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-verde rounded-full transition-all duration-300"
-                      style={{ width: `${(progresso.size / aulas.length) * 100}%` }} />
-                  </div>
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <h3 className="font-bold text-petroleum text-base leading-tight">{cursoAtual.titulo}</h3>
+                <button onClick={() => setView('home')} title="Meus Cursos" className="p-1 text-gray-300 hover:text-petroleum transition-colors shrink-0">
+                  <Menu size={16} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-gray-400 mb-1.5">
+                <span>{horasConcluidas % 1 === 0 ? horasConcluidas : horasConcluidas.toFixed(1)}/{totalHoras || 0} horas</span>
+                <span>{capitulosConcluidos}/{capitulos.length} capítulos</span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+                <div className="h-full bg-verde rounded-full transition-all duration-300" style={{ width: `${progressoPct}%` }} />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-baseline gap-1 text-xs">
+                  <span className="text-oceano font-bold">{conquistasList.length}</span>
+                  <span className="text-gray-400 font-medium">/ {Object.keys(BADGES).length} conquistas</span>
                 </div>
-              )}
+                <button onClick={() => certDoCurso && abrirCertificado(certDoCurso, cursoAtual)} disabled={!certDoCurso}
+                  className={`ml-auto flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-colors ${certDoCurso ? 'text-laranja border-laranja/30 bg-laranja/10 hover:bg-laranja/20' : 'text-gray-300 border-gray-100 bg-gray-50 cursor-not-allowed'}`}>
+                  {certDoCurso ? <Award size={12} /> : <Lock size={11} />} Certificado
+                </button>
+              </div>
             </div>
 
-            {/* Aulas list */}
+            {/* Conteúdo */}
+            <div className="px-4 pt-3 pb-1 shrink-0">
+              <p className="text-xs font-bold text-petroleum/50 uppercase tracking-wide">Conteúdo</p>
+            </div>
+
             <div className="flex-1 overflow-y-auto">
-              {aulas.map((aula, i) => {
-                const concluida = progresso.has(aula.id)
-                const desbloqueada = i === 0 || progresso.has(aulas[i - 1]?.id)
-                const ativa = aulaAtiva?.id === aula.id
-                const isPdf = aula.tipo === 'pdf'
-                const isVideo = aula.tipo === 'video'
-
-                return (
-                  <button
-                    key={aula.id}
-                    onClick={() => desbloqueada && setAulaAtiva(aula)}
-                    disabled={!desbloqueada}
-                    className={`w-full flex items-start gap-3 p-3.5 border-b border-gray-50 text-left transition-colors ${ativa ? 'bg-oceano/8 border-l-2 border-l-oceano' : ''} ${desbloqueada ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${concluida ? 'bg-verde text-petroleum' : ativa ? 'bg-oceano text-white' : desbloqueada ? 'bg-oceano/15 text-oceano' : 'bg-gray-100 text-gray-300'}`}>
-                      {concluida ? <CheckCircle size={14} /> : desbloqueada ? i + 1 : <Lock size={11} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-semibold leading-tight ${ativa ? 'text-oceano' : concluida ? 'text-petroleum/60' : 'text-petroleum'}`}>
-                        {aula.titulo}
-                      </p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        {isPdf && <span className="text-xs text-orange-400 font-medium">PDF</span>}
-                        {isVideo && <span className="text-xs text-blue-400 font-medium">Vídeo</span>}
-                        {(!aula.tipo || aula.tipo === 'youtube') && <span className="text-xs text-red-400 font-medium">YouTube</span>}
-                        {concluida && <span className="text-xs text-verde font-medium ml-1">✓ Concluída</span>}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
+              {gruposCapitulos.length === 0 ? (
+                <p className="text-xs text-gray-300 px-4 py-3">Nenhuma aula cadastrada ainda.</p>
+              ) : (
+                gruposCapitulos.map(grupo => (
+                  <CapituloCard
+                    key={grupo.id}
+                    titulo={grupo.titulo}
+                    aulasGrupo={grupo.aulasGrupo}
+                    aulas={aulas}
+                    progresso={progresso}
+                    aulaAtivaId={aulaAtiva?.id}
+                    expandido={capExpandidoId === grupo.id}
+                    onToggle={() => setCapExpandidoId(prev => prev === grupo.id ? null : grupo.id)}
+                    onSelecionarAula={irParaAula}
+                    filtro={filtroPorCapitulo[grupo.id] ?? 'todos'}
+                    onSetFiltro={(v) => setFiltroCapitulo(grupo.id, v)}
+                  />
+                ))
+              )}
             </div>
 
-            {/* Bottom: actions */}
-            <div className="p-3 border-t border-gray-100 shrink-0 space-y-2">
+            {/* Bottom: prova final */}
+            <div className="p-3 border-t border-gray-100 shrink-0">
               {todasAulasConcluidas && !certDoCurso && (
-                <div>
-                  <p className="text-xs text-center text-gray-400 mb-2">Todas as aulas concluídas! 🎉</p>
-                  <button onClick={abrirQuiz}
-                    className="w-full bg-verde hover:bg-verde-light text-petroleum py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm">
-                    Fazer Prova Final
-                  </button>
-                </div>
-              )}
-              {certDoCurso && (
-                <button onClick={() => abrirCertificado(certDoCurso, cursoAtual)}
-                  className="w-full flex items-center justify-center gap-2 bg-laranja/10 hover:bg-laranja/20 text-laranja border border-laranja/20 py-2.5 rounded-lg text-sm font-bold transition-colors">
-                  <Award size={15} /> Ver Certificado
+                <button onClick={abrirQuiz}
+                  className="w-full bg-verde hover:bg-verde-light text-petroleum py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm">
+                  Fazer Prova Final
                 </button>
               )}
               {!todasAulasConcluidas && (
                 <p className="text-xs text-center text-gray-300 py-1">Conclua todas as aulas para desbloquear a prova</p>
               )}
             </div>
+          </div>
+
+          {/* RIGHT: Conteúdo da aula */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+            {/* barra de progresso fina no topo */}
+            <div className="h-1.5 bg-gray-100 shrink-0">
+              <div className="h-full bg-verde transition-all duration-300" style={{ width: `${progressoPct}%` }} />
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {aulaAtiva ? (
+                <div className="max-w-3xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    {aulaAtiva.tipo === 'pdf' && (
+                      <span className="flex items-center gap-1 text-xs bg-orange-100 text-orange-500 px-2 py-0.5 rounded font-medium">
+                        <FileText size={10} /> PDF
+                      </span>
+                    )}
+                    {aulaAtiva.tipo === 'video' && (
+                      <span className="flex items-center gap-1 text-xs bg-blue-100 text-blue-500 px-2 py-0.5 rounded font-medium">
+                        <Play size={10} /> Vídeo
+                      </span>
+                    )}
+                    {(!aulaAtiva.tipo || aulaAtiva.tipo === 'youtube') && (
+                      <span className="flex items-center gap-1 text-xs bg-red-100 text-red-500 px-2 py-0.5 rounded font-medium">
+                        <Play size={10} /> YouTube
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-300">Aula {aulaIndexAtual + 1} de {aulas.length}</span>
+                    {!!aulaAtiva.duracao_horas && (
+                      <span className="flex items-center gap-1 text-xs text-gray-300"><Clock size={10} /> {aulaAtiva.duracao_horas}h</span>
+                    )}
+                  </div>
+
+                  <h2 className="text-2xl font-bold text-petroleum mb-1">{aulaAtiva.titulo}</h2>
+                  {aulaAtiva.descricao && <p className="text-sm text-gray-500 mb-2">{aulaAtiva.descricao}</p>}
+
+                  <MediaPlayer aula={aulaAtiva} />
+
+                  <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
+                    {aulaAtiva.material_url && (
+                      <a href={aulaAtiva.material_url} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 text-sm text-laranja hover:text-petroleum font-medium transition-colors">
+                        <FileText size={14} /> Material complementar
+                      </a>
+                    )}
+                    {progresso.has(aulaAtiva.id) && (
+                      <span className="flex items-center gap-1.5 text-sm text-verde font-semibold ml-auto">
+                        <CheckCircle size={16} /> Aula concluída
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="text-5xl mb-3">🎉</div>
+                    <h3 className="text-xl font-bold text-petroleum mb-1">Todas as aulas concluídas!</h3>
+                    <p className="text-gray-400 text-sm mb-4">Faça a prova na barra lateral para obter seu certificado.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Voltar / Avançar */}
+            {aulaAtiva && (
+              <div className="border-t border-gray-100 bg-white px-6 py-4 flex items-center justify-between shrink-0">
+                <button onClick={voltarAula} disabled={aulaIndexAtual <= 0}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-petroleum/60 hover:text-petroleum disabled:opacity-30 disabled:cursor-not-allowed px-4 py-2 rounded-lg border border-cinza transition-colors">
+                  <ChevronLeft size={16} /> Voltar
+                </button>
+                <button onClick={avancarAula} disabled={aulaIndexAtual >= aulas.length - 1 && progresso.has(aulaAtiva.id)}
+                  className="flex items-center gap-1.5 text-sm font-bold text-white bg-petroleum hover:bg-petroleum-light px-5 py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  {progresso.has(aulaAtiva.id) ? 'Avançar' : 'Concluir e avançar'} <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
